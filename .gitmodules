@@ -1,0 +1,3 @@
+[submodule "deps/Brick"]
+	path = deps/Brick
+	url = https://github.com/gress2/Brick.git
