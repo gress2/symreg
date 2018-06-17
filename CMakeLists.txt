@@ -18,5 +18,13 @@ set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release/bin")
 set (TEST_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin")
 
-add_subdirectory("./deps/Brick")
 add_subdirectory("./src")
+
+if (MAKE_TESTS)
+  enable_testing()
+  add_subdirectory("./deps/googletest")
+  add_subdirectory("./test")
+  set (MAKE_TESTS OFF)
+endif()
+
+add_subdirectory("./deps/Brick")
