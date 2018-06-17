@@ -18,6 +18,9 @@ set (CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release/bin")
 set (TEST_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin")
 
+set (include_dir "${CMAKE_CURRENT_SOURCE_DIR}/include")
+include_directories (${include_dir})
+
 add_subdirectory("./src")
 
 option (MAKE_TESTS "MAKE_TESTS" OFF)
