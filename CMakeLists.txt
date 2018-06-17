@@ -20,11 +20,13 @@ set (TEST_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TY
 
 add_subdirectory("./src")
 
+option (MAKE_TESTS "MAKE_TESTS" OFF)
+
 if (MAKE_TESTS)
   enable_testing()
   add_subdirectory("./deps/googletest")
   add_subdirectory("./test")
-  set (MAKE_TESTS OFF)
+  SET(MAKE_TESTS OFF CACHE BOOL "MAKE_TESTS" FORCE)
 endif()
 
 add_subdirectory("./deps/Brick")
