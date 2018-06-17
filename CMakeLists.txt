@@ -21,6 +21,8 @@ set (TEST_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TY
 set (include_dir "${CMAKE_CURRENT_SOURCE_DIR}/include")
 include_directories (${include_dir})
 
+link_directories(${ANTLR4CPP_LIBS})
+
 add_subdirectory("./src")
 
 option (MAKE_TESTS "MAKE_TESTS" OFF)
