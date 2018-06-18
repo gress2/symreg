@@ -21,6 +21,13 @@ set (TEST_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TY
 set (include_dir "${CMAKE_CURRENT_SOURCE_DIR}/include")
 include_directories (${include_dir})
 
+set (symreg_tests OFF)
+if (MAKE_TESTS)
+  set (symreg_tests ON)
+  SET(MAKE_TESTS OFF CACHE BOOL "MAKE_TESTS" FORCE)
+endif()
+
+add_subdirectory("./deps/Brick")
 link_directories(${ANTLR4CPP_LIBS})
 
 add_subdirectory("./src")
@@ -31,7 +38,5 @@ if (MAKE_TESTS)
   enable_testing()
   add_subdirectory("./deps/googletest")
   add_subdirectory("./test")
-  SET(MAKE_TESTS OFF CACHE BOOL "MAKE_TESTS" FORCE)
+  
 endif()
-
-add_subdirectory("./deps/Brick")
