@@ -24,7 +24,7 @@ include_directories (${include_dir})
 set (symreg_tests OFF)
 if (MAKE_TESTS)
   set (symreg_tests ON)
-  SET(MAKE_TESTS OFF CACHE BOOL "MAKE_TESTS" FORCE)
+  set (MAKE_TESTS OFF CACHE BOOL "MAKE_TESTS" FORCE)
 endif()
 
 add_subdirectory("./deps/Brick")
@@ -34,9 +34,8 @@ add_subdirectory("./src")
 
 option (MAKE_TESTS "MAKE_TESTS" OFF)
 
-if (MAKE_TESTS)
+if (symreg_tests)
   enable_testing()
   add_subdirectory("./deps/googletest")
   add_subdirectory("./test")
-  
 endif()
