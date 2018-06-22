@@ -4,5 +4,5 @@
 #include "gtest/gtest.h"
 
 TEST(Stuff, WhoCares) {
-  std::cout << "stuff" << std::endl;
+  symreg::MCTS m;
 }
