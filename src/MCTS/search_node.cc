@@ -6,7 +6,11 @@
 namespace symreg
 {
   search_node::search_node(std::unique_ptr<brick::AST::node>&& ast_node)
-    : n_(0), t_(0), ast_node_(std::move(ast_node)), parent_(nullptr), up_link_(nullptr)
+    : n_(0), 
+      t_(0), 
+      ast_node_(std::move(ast_node)), 
+      parent_(nullptr), 
+      up_link_(nullptr)
   {}
 
   void search_node::set_parent(search_node* parent) {
@@ -32,8 +36,9 @@ namespace symreg
     return ss.str();
   }
 
-  void search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
+  search_node* search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
     children_.push_back(search_node(std::move(child_content)));
+    return &(children_.back());
   }
 
   std::vector<search_node>& search_node::children() {
@@ -76,4 +81,15 @@ namespace symreg
     return n_;
   }
 
+  search_node* search_node::parent() {
+    return parent_;
+  }
+
+  bool search_node::is_terminal() const {
+    return ast_node_->is_terminal();
+  }
+
+  search_node* search_node::up_link() {
+    return up_link_;
+  }
 }

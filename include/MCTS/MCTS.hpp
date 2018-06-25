@@ -15,6 +15,7 @@ namespace symreg
       search_node* curr_;
       void rollout(search_node*);
       void add_actions(search_node*);
+      search_node* get_up_link_target(search_node*);
     public:
       MCTS();
       void iterate(std::size_t);

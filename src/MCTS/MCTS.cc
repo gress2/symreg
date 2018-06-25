@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 
 #include "MCTS/MCTS.hpp"
 
@@ -25,13 +26,50 @@ namespace symreg
     }
   }
 
+  search_node* MCTS::get_up_link_target(search_node* curr) {
+    std::map<search_node*, int> targets; 
+    search_node* ancestor = curr;
+    while (ancestor != nullptr) {
+      if (!ancestor->is_terminal()) {
+        if (!targets.count(ancestor)) {
+          targets[ancestor] = 0;
+        }
+      }
+      targets[ancestor->up_link()] += 1;
+      ancestor = ancestor->parent();
+    }
+    for (auto r_it = targets.rbegin(); r_it != targets.rend(); ++r_it) {
+      if (r_it->second < 2) {
+        return r_it->first;
+      }
+    }
+    return nullptr;
+  }
+
   void MCTS::add_actions(search_node* curr) {
     std::cout << "MCTS::add_actions()" << std::endl;
+    curr->add_child(std::make_unique<brick::AST::parens_node>());
+    curr->add_child(std::make_unique<brick::AST::negate_node>());
+    curr->add_child(std::make_unique<brick::AST::addition_node>());
+    curr->add_child(std::make_unique<brick::AST::subtraction_node>());
+    curr->add_child(std::make_unique<brick::AST::multiplication_node>());
+    curr->add_child(std::make_unique<brick::AST::division_node>());
+    curr->add_child(std::make_unique<brick::AST::sin_function_node>());
+    curr->add_child(std::make_unique<brick::AST::cos_function_node>());
+    curr->add_child(std::make_unique<brick::AST::log_function_node>());
+    curr->add_child(std::make_unique<brick::AST::number_node>(1));
+    curr->add_child(std::make_unique<brick::AST::number_node>(2));
+    curr->add_child(std::make_unique<brick::AST::number_node>(3));
+    curr->add_child(std::make_unique<brick::AST::id_node>("x"));
   }
 
   void MCTS::rollout(search_node* curr) {
-    std::cout << "MCTS::rollout()" << std::endl;
-
+    search_node* up_target = get_up_link_target(curr);
+    if (up_target) {
+      auto child = curr->add_child(std::make_unique<brick::AST::number_node>(3));
+      child->set_parent(curr);
+      child->set_up_link(up_target);
+    }
   }
 
   std::string MCTS::to_gv() const {
