@@ -8,7 +8,9 @@ namespace symreg
   MCTS::MCTS()
     : root_(search_node(std::make_unique<brick::AST::posit_node>())),
       curr_(&root_)
-  {}
+  {
+    rng_.seed(std::random_device()()); 
+  }
 
   void MCTS::iterate(std::size_t n) {
     for (std::size_t i = 0; i < n; i++) {
@@ -46,6 +48,23 @@ namespace symreg
     return nullptr;
   }
 
+  search_node MCTS::get_random_action() {
+    int r = get_random(0, 4);
+    std::cout << "rand" << std::endl;
+    std::cout << r << std::endl;
+    if (r == 0) {
+      return search_node{std::make_unique<brick::AST::number_node>(3)};
+    } else if (r == 1) {
+      return search_node{std::make_unique<brick::AST::addition_node>()};
+    } else if (r == 2) {
+      return search_node{std::make_unique<brick::AST::multiplication_node>()};
+    } else if (r == 3) {
+      return search_node{std::make_unique<brick::AST::id_node>("z")};
+    } else {
+      return search_node{std::make_unique<brick::AST::id_node>("y")};
+    }
+  }
+
   void MCTS::add_actions(search_node* curr) {
     std::cout << "MCTS::add_actions()" << std::endl;
     curr->add_child(std::make_unique<brick::AST::parens_node>());
@@ -64,11 +83,16 @@ namespace symreg
   }
 
   void MCTS::rollout(search_node* curr) {
+    search_node* rollout_base = curr;
     search_node* up_target = get_up_link_target(curr);
-    if (up_target) {
-      auto child = curr->add_child(std::make_unique<brick::AST::number_node>(3));
+
+    while (up_target) {
+      search_node&& random_action = get_random_action();
+      auto child = curr->add_child(std::move(random_action));
       child->set_parent(curr);
       child->set_up_link(up_target);
+      up_target = get_up_link_target(child);
+      curr = child;
     }
   }
 
@@ -78,5 +102,11 @@ namespace symreg
     ss << root_.to_gv();
     ss << "}" << std::endl;
     return ss.str();
+  }
+
+  int MCTS::get_random(int lower, int upper) {
+    std::uniform_int_distribution<std::mt19937::result_type> dist(lower, upper);
+    std::cout << dist(rng_) << std::endl;
+    return dist(rng_); 
   }
 }

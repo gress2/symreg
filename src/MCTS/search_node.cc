@@ -13,6 +13,15 @@ namespace symreg
       up_link_(nullptr)
   {}
 
+  search_node::search_node(search_node&& other)
+    : n_(other.n_),
+      t_(other.t_),
+      ast_node_(std::move(other.ast_node_)),
+      parent_(other.parent_),
+      up_link_(other.up_link_),
+      children_(std::move(other.children_))
+  {}
+
   void search_node::set_parent(search_node* parent) {
     parent_ = parent;
   }
@@ -38,6 +47,11 @@ namespace symreg
 
   search_node* search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
     children_.push_back(search_node(std::move(child_content)));
+    return &(children_.back());
+  }
+
+  search_node* search_node::add_child(search_node&& child) {
+    children_.push_back(std::move(child));
     return &(children_.back());
   }
 

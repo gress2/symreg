@@ -2,6 +2,7 @@
 #define SYMREG_MCTS_MCTS_HPP_
 
 #include <memory>
+#include <random>
 
 #include "brick.hpp"
 #include "MCTS/search_node.hpp"
@@ -16,6 +17,9 @@ namespace symreg
       void rollout(search_node*);
       void add_actions(search_node*);
       search_node* get_up_link_target(search_node*);
+      std::mt19937 rng_;
+      search_node get_random_action();
+      int get_random(int, int);
     public:
       MCTS();
       void iterate(std::size_t);
