@@ -10,10 +10,15 @@ namespace symreg
 {
   class MCTS {
     private:
+      static const int C = 2;
       search_node root_;
       search_node* curr_;
+      void rollout(search_node*);
+      void add_actions(search_node*);
     public:
       MCTS();
+      void iterate(std::size_t);
+      std::string to_gv() const;
   };
 }
 
