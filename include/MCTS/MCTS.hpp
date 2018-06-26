@@ -20,6 +20,7 @@ namespace symreg
       std::mt19937 rng_;
       search_node get_random_action();
       int get_random(int, int);
+      std::unique_ptr<brick::AST::AST> build_ast_upward(search_node*, search_node*);
     public:
       MCTS();
       void iterate(std::size_t);

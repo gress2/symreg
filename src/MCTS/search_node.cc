@@ -106,4 +106,8 @@ namespace symreg
   search_node* search_node::up_link() {
     return up_link_;
   }
+
+  std::unique_ptr<brick::AST::node>& search_node::ast_node() {
+    return ast_node_;
+  } 
 }

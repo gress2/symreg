@@ -82,6 +82,26 @@ namespace symreg
     curr->add_child(std::make_unique<brick::AST::id_node>("x"));
   }
 
+  std::unique_ptr<brick::AST::AST> MCTS::build_ast_upward(search_node* bottom, search_node* base) {
+    search_node* cur = bottom;
+    std::map<search_node*, std::vector<search_node*>> connections;
+    std::map<search_node*, std::unique_ptr<brick::AST::node>> search_to_ast_node;
+    while (cur != base) {
+      search_node* up_link = cur->up_link(); 
+      search_to_ast_node[cur] = std::move(cur->ast_node());
+      if (!connections.count(up_link)) {
+        connections[up_link] = {cur};
+      } else {
+        connections[up_link].push_back(cur);
+      }
+      cur = cur->parent();
+    }
+  
+    // todo: probably "sliced"
+    search_to_ast_node[base] = std::make_unique<brick::AST::node>(*(base->ast_node()));
+    return std::make_unique<brick::AST::AST>(std::make_unique<brick::AST::number_node>(3));
+  }
+
   void MCTS::rollout(search_node* curr) {
     search_node* rollout_base = curr;
     search_node* up_target = get_up_link_target(curr);
@@ -94,6 +114,11 @@ namespace symreg
       up_target = get_up_link_target(child);
       curr = child;
     }
+
+    // no more upward targets, must be a full AST
+    std::unique_ptr<brick::AST::AST> ast = build_ast_upward(curr, rollout_base);
+    std::cout << ast->eval() << std::endl;
+    rollout_base->children().clear();
   }
 
   std::string MCTS::to_gv() const {

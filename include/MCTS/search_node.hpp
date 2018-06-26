@@ -33,6 +33,7 @@ namespace symreg
       search_node* parent();
       bool is_terminal() const;
       search_node* up_link();
+      std::unique_ptr<brick::AST::node>& ast_node();
   };
 }
 
