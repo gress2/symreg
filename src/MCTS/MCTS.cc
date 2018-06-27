@@ -19,13 +19,24 @@ namespace symreg
       while (!curr_->is_leaf_node()) {
         curr_ = curr_->max_UCB1();
       }
-      if (curr_->n() == 0) {
-        rollout(curr_);
+      if (curr_->get_n() == 0) {
+        std::cout << "branch A" << std::endl;
+        backprop(rollout(curr_), curr_);
       } else {
+        std::cout << "branch B" << std::endl;
         add_actions(curr_);
         curr_ = &(curr_->children()[0]);
-        rollout(curr_);
+        backprop(rollout(curr_), curr_);
       }
+    }
+  }
+
+  void MCTS::backprop(double value, search_node* curr) {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    while (curr) {
+      curr->set_t(curr->get_t() + value);
+      curr->set_n(curr->get_n() + 1);
+      curr = curr->parent();
     }
   }
 
@@ -84,6 +95,7 @@ namespace symreg
   }
 
   void MCTS::add_actions(search_node* curr) {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     std::vector<search_node*> targets = get_up_link_targets(curr);
     std::vector<std::unique_ptr<brick::AST::node>> actions = get_action_set();
     for (search_node* targ : targets) {
@@ -117,7 +129,8 @@ namespace symreg
     return search_to_ast[root];
   }
 
-  void MCTS::rollout(search_node* curr) {
+  double MCTS::rollout(search_node* curr) {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     search_node* rollout_base = curr;
     search_node* up_target = get_earliest_up_link_target(curr);
 
@@ -134,6 +147,7 @@ namespace symreg
     std::shared_ptr<brick::AST::AST> ast = build_ast_upward(curr);
     double value = ast->eval(&symbol_table_);
     rollout_base->children().clear();
+    return value;
   }
 
   std::string MCTS::to_gv() const {

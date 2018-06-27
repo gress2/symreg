@@ -15,8 +15,9 @@ namespace symreg
       static const int C = 2;
       search_node root_;
       search_node* curr_;
-      void rollout(search_node*);
+      double rollout(search_node*);
       void add_actions(search_node*);
+      void backprop(double, search_node*);
       std::vector<search_node*> get_up_link_targets(search_node*);
       search_node* get_earliest_up_link_target(search_node*);
       std::mt19937 rng_;

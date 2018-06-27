@@ -70,7 +70,7 @@ namespace symreg
       if (child.n_ == 0) {
         return &child;
       }
-      double UCB1 = child.avg_child_val() + 2 * sqrt(log(n_) / child.n_);
+      double UCB1 = (child.t_/child.n_) + 2 * sqrt(log(n_) / child.n_);
       if (UCB1 > max) {
         max = UCB1;
         max_node = &child;
@@ -83,16 +83,20 @@ namespace symreg
     return max_node;
   }
 
-  double search_node::avg_child_val() const {
-    double sum = 0;
-    for (auto& child : children_) {
-      sum += child.t_;
-    }
-    return sum / children_.size();
+  int search_node::get_n() const {
+    return n_;
   }
 
-  int search_node::n() const {
-    return n_;
+  void search_node::set_n(int val) {
+    n_ = val;
+  }
+
+  double search_node::get_t() const {
+    return t_;
+  }
+
+  void search_node::set_t(double val) {
+    t_ = val;
   }
 
   search_node* search_node::parent() {
