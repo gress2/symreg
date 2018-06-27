@@ -46,7 +46,7 @@ namespace symreg
     }
     std::vector<search_node*> avail_targets;
     for (auto r_it = targets.rbegin(); r_it != targets.rend(); ++r_it) {
-      if (r_it->second < 2) {
+      if (r_it->second < r_it->first->ast_node()->num_children()) {
         avail_targets.push_back(r_it->first);;
       }
     }
@@ -93,10 +93,6 @@ namespace symreg
     std::vector<search_node*> targets = get_up_link_targets(curr);
     std::vector<std::unique_ptr<brick::AST::node>> actions = get_action_set();
     for (search_node* targ : targets) {
-      if (targ == nullptr) {
-        std::cout << "no" << std::endl;
-      }
-      std::cout << "yes" << std::endl;
       for (std::unique_ptr<brick::AST::node>& action : actions) {
         auto child = curr->add_child(std::move(action));
         child->set_parent(curr);
@@ -109,31 +105,25 @@ namespace symreg
   std::shared_ptr<brick::AST::AST> MCTS::build_ast_upward(search_node* bottom, search_node* base) {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     search_node* cur = bottom;
-    std::map<search_node*, std::vector<search_node*>> connections;
+    search_node* root = &root_;
+
     std::map<search_node*, std::shared_ptr<brick::AST::AST>> search_to_ast;
-    
-    while (cur != base) {
-      search_node* up_link = cur->up_link(); 
-      search_to_ast[cur] = std::make_shared<brick::AST::AST>(std::move(cur->ast_node()));
-      if (!connections.count(up_link)) {
-        connections[up_link] = {cur};
-      } else {
-        connections[up_link].push_back(cur);
-      }
+
+    while (cur != root) {
+      search_to_ast[cur] = std::make_shared<brick::AST::AST>(std::unique_ptr<brick::AST::node>(cur->ast_node()->clone()));
       cur = cur->parent();
     }
-  
-    search_to_ast[base] = 
-      std::make_shared<brick::AST::AST>(std::make_unique<brick::AST::node>(*(base->ast_node())));
 
-    for (auto it1 = connections.rbegin(); it1 != connections.rend(); ++it1) {
-      std::shared_ptr<brick::AST::AST>& parent = search_to_ast[it1->first];
-      for (search_node* child : it1->second) {
-        parent->add_child(search_to_ast[child]);
-      } 
+    search_to_ast[root] = std::make_shared<brick::AST::AST>(std::unique_ptr<brick::AST::node>(root->ast_node()->clone()));
+
+    cur = bottom;
+
+    while (cur != root) {
+      search_to_ast[cur->up_link()]->add_child(search_to_ast[cur]);
+      cur = cur->parent();
     }
 
-    return search_to_ast[base]; 
+    return search_to_ast[root];
   }
 
   void MCTS::rollout(search_node* curr) {
@@ -152,6 +142,7 @@ namespace symreg
 
     // no more upward targets, must be a full AST
     std::shared_ptr<brick::AST::AST> ast = build_ast_upward(curr, rollout_base);
+    std::cout << ast->to_gv() << std::endl;
     double value = ast->eval(&symbol_table_);
     std::cout << value << std::endl;
     rollout_base->children().clear();
