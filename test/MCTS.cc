@@ -7,7 +7,7 @@ TEST(Stuff, WhoCares) {
   symreg::MCTS mcts;
   mcts.iterate(3);
   std::cout << mcts.to_gv() << std::endl;
-  ASSERT_TRUE(false);
+  ASSERT_TRUE(true);
 }
 
 

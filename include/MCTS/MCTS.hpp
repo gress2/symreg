@@ -22,7 +22,7 @@ namespace symreg
       std::mt19937 rng_;
       search_node get_random_action();
       int get_random(int, int);
-      std::shared_ptr<brick::AST::AST> build_ast_upward(search_node*, search_node*);
+      std::shared_ptr<brick::AST::AST> build_ast_upward(search_node*);
       std::unordered_map<std::string, double> symbol_table_;
       std::vector<std::unique_ptr<brick::AST::node>> get_action_set();
     public:
