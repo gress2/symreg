@@ -25,7 +25,7 @@ namespace symreg
       std::string to_gv() const;
       search_node* add_child(std::unique_ptr<brick::AST::node>&&);
       search_node* add_child(search_node&&);
-      std::vector<search_node>& children();
+      std::vector<search_node>& get_children();
       bool is_leaf_node() const;
       search_node* max_UCB1();
       int get_n() const;
@@ -36,6 +36,7 @@ namespace symreg
       bool is_terminal() const;
       search_node* up_link();
       std::unique_ptr<brick::AST::node>& ast_node();
+      bool visited() const;
   };
 }
 

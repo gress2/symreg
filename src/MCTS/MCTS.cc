@@ -13,22 +13,42 @@ namespace symreg
     add_actions(curr_);
   }
 
-  void MCTS::iterate(std::size_t n) {
-    for (std::size_t i = 0; i < n; i++) {
-      curr_ = &root_;
-      while (!curr_->is_leaf_node()) {
-        curr_ = curr_->max_UCB1();
+  void MCTS::simulate() {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    for (std::size_t i = 0; i < num_simulations_; i++) {
+      search_node* leaf = choose_leaf();
+      if (leaf->visited()) {
+        if (add_actions(leaf)) {
+          leaf = &(leaf->get_children()[0]);
+        } else {
+          std::cout << "no actions added to this leaf" << std::endl;
+        }
       }
-      if (curr_->get_n() == 0) {
-        std::cout << "branch A" << std::endl;
-        backprop(rollout(curr_), curr_);
-      } else {
-        std::cout << "branch B" << std::endl;
-        add_actions(curr_);
-        curr_ = &(curr_->children()[0]);
-        backprop(rollout(curr_), curr_);
-      }
+      double value = rollout(leaf);
+      backprop(value, leaf);
     }
+  }
+
+  void MCTS::iterate(std::size_t n) {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    for (std::size_t i = 0; i < n; i++) {
+      simulate();
+      make_move();
+    }
+  }
+
+  void MCTS::make_move() {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    curr_ = curr_->max_UCB1();
+  }
+
+  search_node* MCTS::choose_leaf() {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    search_node* leaf = curr_;
+    while (!leaf->is_leaf_node()) {
+      leaf = leaf->max_UCB1();
+    }
+    return leaf;
   }
 
   void MCTS::backprop(double value, search_node* curr) {
@@ -41,6 +61,7 @@ namespace symreg
   }
 
   std::vector<search_node*> MCTS::get_up_link_targets(search_node* curr) {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     std::map<search_node*, int> targets; 
     search_node* ancestor = curr;
     while (ancestor != nullptr) {
@@ -80,8 +101,7 @@ namespace symreg
       return search_node{std::make_unique<brick::AST::addition_node>()};
     } else if (r == 2) {
       return search_node{std::make_unique<brick::AST::multiplication_node>()};
-    } else if (r == 3) {
-      return search_node{std::make_unique<brick::AST::id_node>("z")};
+    } else if (r == 3) { return search_node{std::make_unique<brick::AST::id_node>("z")};
     } else {
       return search_node{std::make_unique<brick::AST::id_node>("y")};
     }
@@ -91,23 +111,30 @@ namespace symreg
     std::vector<std::unique_ptr<brick::AST::node>> actions;
     actions.push_back(std::make_unique<brick::AST::addition_node>());
     actions.push_back(std::make_unique<brick::AST::number_node>(3));
+    actions.push_back(std::make_unique<brick::AST::multiplication_node>());
     return actions; 
   }
 
-  void MCTS::add_actions(search_node* curr) {
+  bool MCTS::add_actions(search_node* curr) {
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     std::vector<search_node*> targets = get_up_link_targets(curr);
+    if (targets.empty()) {
+      return false;
+    }
     std::vector<std::unique_ptr<brick::AST::node>> actions = get_action_set();
     for (search_node* targ : targets) {
-      for (std::unique_ptr<brick::AST::node>& action : actions) {
-        auto child = curr->add_child(std::move(action));
+      for (auto it = actions.begin(); it != actions.end();) {
+        auto child = curr->add_child(std::move(*it));
         child->set_parent(curr);
-        child->set_up_link(targ); 
-      } 
+        child->set_up_link(targ);
+        it = actions.erase(it);
+      }
     }
+    return true;
   }
 
   std::shared_ptr<brick::AST::AST> MCTS::build_ast_upward(search_node* bottom) {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
     search_node* cur = bottom;
     search_node* root = &root_;
     std::map<search_node*, std::shared_ptr<brick::AST::AST>> search_to_ast;
@@ -146,7 +173,7 @@ namespace symreg
     // no more upward targets, must be a full AST
     std::shared_ptr<brick::AST::AST> ast = build_ast_upward(curr);
     double value = ast->eval(&symbol_table_);
-    rollout_base->children().clear();
+    rollout_base->get_children().clear();
     return value;
   }
 

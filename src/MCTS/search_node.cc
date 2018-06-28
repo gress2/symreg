@@ -55,45 +55,45 @@ namespace symreg
     return &(children_.back());
   }
 
-  std::vector<search_node>& search_node::children() {
-    return children_;
-  }
+    std::vector<search_node>& search_node::get_children() {
+      return children_;
+    }
 
-  bool search_node::is_leaf_node() const {
-    return children_.empty();
-  }
+    bool search_node::is_leaf_node() const {
+      return children_.empty();
+    }
 
-  search_node* search_node::max_UCB1() {
-    double max = -std::numeric_limits<double>::infinity();
-    search_node* max_node = nullptr;
-    for (auto& child : children_) {
-      if (child.n_ == 0) {
-        return &child;
+    search_node* search_node::max_UCB1() {
+      double max = -std::numeric_limits<double>::infinity();
+      search_node* max_node = nullptr;
+      for (auto& child : children_) {
+        if (child.n_ == 0) {
+          return &child;
+        }
+        double UCB1 = (child.t_/child.n_) + 2 * sqrt(log(n_) / child.n_);
+        if (UCB1 > max) {
+          max = UCB1;
+          max_node = &child;
+        } 
       }
-      double UCB1 = (child.t_/child.n_) + 2 * sqrt(log(n_) / child.n_);
-      if (UCB1 > max) {
-        max = UCB1;
-        max_node = &child;
-      } 
+      if (max_node == nullptr) {
+        std::cerr << "Something went wrong in search_node::max_UCB1().";
+        std::cerr << " Did the search node have children?" << std::endl;
+      }
+      return max_node;
     }
-    if (max_node == nullptr) {
-      std::cerr << "Something went wrong in search_node::max_UCB1().";
-      std::cerr << " Did the search node have children?" << std::endl;
+
+    int search_node::get_n() const {
+      return n_;
     }
-    return max_node;
-  }
 
-  int search_node::get_n() const {
-    return n_;
-  }
+    void search_node::set_n(int val) {
+      n_ = val;
+    }
 
-  void search_node::set_n(int val) {
-    n_ = val;
-  }
-
-  double search_node::get_t() const {
-    return t_;
-  }
+    double search_node::get_t() const {
+      return t_;
+    }
 
   void search_node::set_t(double val) {
     t_ = val;
@@ -114,4 +114,8 @@ namespace symreg
   std::unique_ptr<brick::AST::node>& search_node::ast_node() {
     return ast_node_;
   } 
+
+  bool search_node::visited() const {
+    return n_ > 0;
+  }
 }
