@@ -1,5 +1,6 @@
 #include <iostream>
 #include <map>
+#include <queue>
 
 #include "MCTS/MCTS.hpp"
 
@@ -8,13 +9,14 @@ namespace symreg
   MCTS::MCTS()
     : root_(search_node(std::make_unique<brick::AST::posit_node>())),
       curr_(&root_)
-  {
-    rng_.seed(std::random_device()()); 
+  { rng_.seed(std::random_device()()); 
     add_actions(curr_);
   }
 
   void MCTS::simulate() {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     for (std::size_t i = 0; i < num_simulations_; i++) {
       search_node* leaf = choose_leaf();
       if (leaf->visited()) {
@@ -30,20 +32,27 @@ namespace symreg
   }
 
   void MCTS::iterate(std::size_t n) {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     for (std::size_t i = 0; i < n; i++) {
+      std::cout << "Iteration: " << i << std::endl;
       simulate();
       make_move();
     }
   }
 
   void MCTS::make_move() {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     curr_ = curr_->max_UCB1();
   }
 
   search_node* MCTS::choose_leaf() {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     search_node* leaf = curr_;
     while (!leaf->is_leaf_node()) {
       leaf = leaf->max_UCB1();
@@ -52,7 +61,9 @@ namespace symreg
   }
 
   void MCTS::backprop(double value, search_node* curr) {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     while (curr) {
       curr->set_t(curr->get_t() + value);
       curr->set_n(curr->get_n() + 1);
@@ -61,7 +72,9 @@ namespace symreg
   }
 
   std::vector<search_node*> MCTS::get_up_link_targets(search_node* curr) {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     std::map<search_node*, int> targets; 
     search_node* ancestor = curr;
     while (ancestor != nullptr) {
@@ -85,6 +98,9 @@ namespace symreg
   }
 
   search_node* MCTS::get_earliest_up_link_target(search_node* curr) {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
@@ -93,21 +109,28 @@ namespace symreg
     }
   }
 
-  search_node MCTS::get_random_action() {
+  std::unique_ptr<brick::AST::node> MCTS::get_random_action() {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     int r = get_random(0, 4);
     if (r == 0) {
-      return search_node{std::make_unique<brick::AST::number_node>(3)};
+      return std::make_unique<brick::AST::number_node>(3);
     } else if (r == 1) {
-      return search_node{std::make_unique<brick::AST::addition_node>()};
+      return std::make_unique<brick::AST::addition_node>();
     } else if (r == 2) {
-      return search_node{std::make_unique<brick::AST::multiplication_node>()};
-    } else if (r == 3) { return search_node{std::make_unique<brick::AST::id_node>("z")};
+      return std::make_unique<brick::AST::multiplication_node>();
+    } else if (r == 3) { 
+      return std::make_unique<brick::AST::id_node>("z");
     } else {
-      return search_node{std::make_unique<brick::AST::id_node>("y")};
+      return std::make_unique<brick::AST::id_node>("y");
     }
   }
 
   std::vector<std::unique_ptr<brick::AST::node>> MCTS::get_action_set() {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     std::vector<std::unique_ptr<brick::AST::node>> actions;
     actions.push_back(std::make_unique<brick::AST::addition_node>());
     actions.push_back(std::make_unique<brick::AST::number_node>(3));
@@ -116,7 +139,9 @@ namespace symreg
   }
 
   bool MCTS::add_actions(search_node* curr) {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     std::vector<search_node*> targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return false;
@@ -134,7 +159,9 @@ namespace symreg
   }
 
   std::shared_ptr<brick::AST::AST> MCTS::build_ast_upward(search_node* bottom) {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     search_node* cur = bottom;
     search_node* root = &root_;
     std::map<search_node*, std::shared_ptr<brick::AST::AST>> search_to_ast;
@@ -156,28 +183,44 @@ namespace symreg
     return search_to_ast[root];
   }
 
-  double MCTS::rollout(search_node* curr) {
+  void set_targets_from_ast(std::shared_ptr<brick::AST::AST> ast, 
+    std::queue<std::shared_ptr<brick::AST::AST>>& targets) {
+    #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
-    search_node* rollout_base = curr;
-    search_node* up_target = get_earliest_up_link_target(curr);
-
-    while (up_target) {
-      search_node&& random_action = get_random_action();
-      auto child = curr->add_child(std::move(random_action));
-      child->set_parent(curr);
-      child->set_up_link(up_target);
-      up_target = get_earliest_up_link_target(child);
-      curr = child;
+    #endif
+    if (!ast->is_full()) {
+      targets.push(ast);
     }
+    for (std::shared_ptr<brick::AST::AST>& child : ast->get_children()) {
+      set_targets_from_ast(child, targets);
+    } 
+  }
 
-    // no more upward targets, must be a full AST
-    std::shared_ptr<brick::AST::AST> ast = build_ast_upward(curr);
-    double value = ast->eval(&symbol_table_);
-    rollout_base->get_children().clear();
-    return value;
+  double MCTS::rollout(search_node* curr) {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
+    search_node* rollout_base = curr;
+    std::shared_ptr<brick::AST::AST> ast = build_ast_upward(rollout_base);
+    std::queue<std::shared_ptr<brick::AST::AST>> targets;   
+    set_targets_from_ast(ast, targets);
+    while (!targets.empty()) {
+      std::shared_ptr<brick::AST::AST> targ = targets.front();
+      std::shared_ptr<brick::AST::AST> child = targ->add_child(get_random_action());
+      if (!child->is_terminal()) {
+        targets.push(child); 
+      }
+      if (targ->is_full()) {
+        targets.pop();
+      }
+    }
+    return ast->eval(&symbol_table_);
   }
 
   std::string MCTS::to_gv() const {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     std::stringstream ss;
     ss << "digraph {" << std::endl;
     ss << root_.to_gv();
@@ -186,11 +229,17 @@ namespace symreg
   }
 
   int MCTS::get_random(int lower, int upper) {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     std::uniform_int_distribution<std::mt19937::result_type> dist(lower, upper);
     return dist(rng_); 
   }
 
   std::unordered_map<std::string, double>& MCTS::symbol_table() {
+    #ifdef DEBUG 
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
     return symbol_table_;
   }
 }
