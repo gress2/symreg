@@ -6,13 +6,35 @@
 
 namespace symreg
 {
+  /**
+   * @brief MCTS constructor
+   * 
+   * A root search node is constructed using a unary + operator.
+   * This node is automatically expanded with all possible actions.
+   * The curr_ pointer is initialized to point at this search node.
+   * Additionally, the classes random number generator instance is seeded.
+   */
   MCTS::MCTS()
     : root_(search_node(std::make_unique<brick::AST::posit_node>())),
       curr_(&root_)
-  { rng_.seed(std::random_device()()); 
+  { 
+    rng_.seed(std::random_device()()); 
     add_actions(curr_);
   }
 
+  /**
+   * @brief The simulation step involving node expansion and rollouts
+   * 
+   * This function iteratively does the following:
+   *  1) A leaf node in the MCTS tree is chosen based on some heuristics
+   *  2) If the leaf node has already been rolled out from, the leaf node
+   *     is expanded and we set the leaf node pointer to the first child
+   *     added in the expansion
+   *  3) A random rollout is performed from the leaf node
+   *  4) The value of the rollout is backpropagated up the tree.
+   * 
+   * Design decision: in step 2, the first child is always chosen
+   */
   void MCTS::simulate() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -31,6 +53,15 @@ namespace symreg
     }
   }
 
+  /**
+   * @brief The driver for all of the MCTS iterations
+   * 
+   * A simple loop which first runs a simulation step
+   * which explores/expands the tree followed by a step
+   * which heuristically decides a move to take in the tree.
+   * 
+   * @param n number determining how many time we wish to loop
+   */
   void MCTS::iterate(std::size_t n) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
