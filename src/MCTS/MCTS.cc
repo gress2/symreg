@@ -73,6 +73,15 @@ namespace symreg
     }
   }
 
+  /**
+   * @brief The method for actually making moves within 
+   * the MCTS algorithm.
+   *
+   * This simply selects the next move by choosing the child
+   * node of the current node with the highest UCB1 value.
+   *
+   * Design decision: this method
+   */
   void MCTS::make_move() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -80,6 +89,16 @@ namespace symreg
     curr_ = curr_->max_UCB1();
   }
 
+  /**
+   * @brief Chooses a leaf node to rollout/expand in the
+   * simulation step.
+   *
+   * Starting from the current node of the algorithm, iterates
+   * downward through tree by always choosing the child with
+   * the highest UCB1 value
+   *
+   * Design decision: this method
+   */
   search_node* MCTS::choose_leaf() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -91,6 +110,19 @@ namespace symreg
     return leaf;
   }
 
+  /**
+   * @brief the method for propagating visit count and node value
+   * up the tree to ancestor nodes
+   *
+   * Starting from a passed node curr, follows the parent links up the
+   * tree. At each node, the value of the node is increased by the 
+   * passed parameter value. Each node along the way is increased by 1.
+   *
+   * Design decision: the way this math is done. 
+   *
+   * @param value the value of the rollout to be propagated upward
+   * @param curr a pointer to the leaf node which was rolled out
+   */
   void MCTS::backprop(double value, search_node* curr) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -102,6 +134,18 @@ namespace symreg
     }
   }
 
+  /**
+   * @brief finds ancestors of the passed node which don't have enough children
+   * in the AST sense. E.g. an addition node should have two children below it.
+   *
+   * First, this method iterates up the the tree creating a map from search nodes
+   * to the descendants pointing to them (children). This map is then iterated over.
+   * If a search node in the map has less child connections than its capacity, 
+   * the node becomes an available target and pushed onto the returned vector.
+   *
+   * @param curr A search node for which we wish to find potential parent targets at or above 
+   * @return A vector containing potential parent targets for new descendants to link to
+   */
   std::vector<search_node*> MCTS::get_up_link_targets(search_node* curr) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -128,6 +172,15 @@ namespace symreg
     return avail_targets;
   }
 
+  /**
+   * @brief Finds the earliest (higest in the tree) ancestor of a node 
+   * which can be used for a parent connection.
+   *
+   * Simply calls get_up_link_targets() and returns the first search node 
+   * 
+   * @param curr the node for which we start the parent search
+   * @return the earliest parent target in this path of the MCTS tree
+   */
   search_node* MCTS::get_earliest_up_link_target(search_node* curr) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
