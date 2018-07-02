@@ -13,11 +13,10 @@ namespace symreg
   class MCTS {
     private:
       static const int C = 2;
-      static const int num_simulations_ = 100;
+      static const int num_simulations_ = 40;
       search_node root_;
       search_node* curr_;
-      double rollout_1(search_node*);
-      double rollout_2(search_node*);
+      double rollout(search_node*);
       bool add_actions(search_node*);
       void backprop(double, search_node*);
       std::vector<search_node*> get_up_link_targets(search_node*);

@@ -12,7 +12,7 @@ namespace symreg
   class search_node {
     private:
       int n_;
-      double t_;
+      double v_;
       std::unique_ptr<brick::AST::node> ast_node_;
       search_node* parent_;
       search_node* up_link_;
@@ -30,8 +30,8 @@ namespace symreg
       search_node* max_UCB1();
       int get_n() const;
       void set_n(int);
-      double get_t() const;
-      void set_t(double);
+      double get_v() const;
+      void set_v(double);
       search_node* parent();
       bool is_terminal() const;
       search_node* up_link();

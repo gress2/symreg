@@ -128,7 +128,7 @@ namespace symreg
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
     while (curr) {
-      curr->set_t(curr->get_t() + value);
+      curr->set_v(curr->get_v() + value);
       curr->set_n(curr->get_n() + 1);
       curr = curr->parent();
     }
@@ -193,6 +193,13 @@ namespace symreg
     }
   }
 
+  /**
+   * @brief returns a unique pointer to a randomly chosen AST node type
+   *
+   * A random number is generated and used to return the corresponding node type
+   *
+   * @return a unique pointer to a randomly chosen node type
+   */
   std::unique_ptr<brick::AST::node> MCTS::get_random_action() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -211,6 +218,14 @@ namespace symreg
     }
   }
 
+  /**
+   * @brief returns a vector of unique pointers to all possible node types
+   *
+   * a vector is created and unique pointers to all AST node types are pushed
+   * onto the vector
+   *
+   * @return a vector of unique pointers for all possible node types
+   */
   std::vector<std::unique_ptr<brick::AST::node>> MCTS::get_action_set() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -222,6 +237,18 @@ namespace symreg
     return actions; 
   }
 
+  /**
+   * @brief Expansion, i.e., given a search node, attaches children nodes for all possible moves
+   * from the node. 
+   *
+   * starting from curr, the tree is searched upward to find nodes which have
+   * available slots for children to be attached. for each of the nodes found,
+   * all possible actions are attached to curr and up-linked to the the node. curr may only
+   * be expanded while there are still possible moves to be made. 
+   *
+   * @param curr the node to be expanded
+   * @return a boolean denoting whether or not the node was expanded
+   */
   bool MCTS::add_actions(search_node* curr) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -242,6 +269,15 @@ namespace symreg
     return true;
   }
 
+  /**
+   * @brief builds an AST starting from a search node to the root of the MCTS
+   *
+   * Given some search node in the MCTS tree, this method works backward (upward)
+   * from the node to the root of the tree, building an actual AST as it goes.
+   * 
+   * @param bottom the MCTS search node to start building the AST from
+   * @return a shared pointer to the root of the AST which was built
+   */
   std::shared_ptr<brick::AST::AST> MCTS::build_ast_upward(search_node* bottom) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -267,6 +303,18 @@ namespace symreg
     return search_to_ast[root];
   }
 
+  /**
+   * @brief finds slots for available children in an AST
+   *
+   * given an AST starting at ast, recurses the tree to find all
+   * AST nodes for which the number of children attached to the node
+   * is less than the capacity of the node. found nodes are pushed
+   * onto the targets queue.
+   *
+   * @param ast a shared pointer to an ast to be searched
+   * @param targets a reference to a queue of ast shared pointers to
+   * be filled
+   */
   void set_targets_from_ast(std::shared_ptr<brick::AST::AST> ast, 
     std::queue<std::shared_ptr<brick::AST::AST>>& targets) {
     #ifdef DEBUG 
@@ -280,6 +328,20 @@ namespace symreg
     } 
   }
 
+  /**
+   * @brief performs a random rollout starting from a search node in the MCTS
+   *
+   * first, the implicit AST at curr is built. next, we create a queue of 
+   * AST nodes which need to have children added to be "full". while this queue
+   * is not empty, we add random AST nodes to this AST, adding to the queue 
+   * when we append non-terminal AST nodes. once we manage to build a full/valid
+   * AST, we evaluate the AST using the symbol table member of the MCTS class.
+   *
+   * Design decision: FIFO method of appending random nodes -- does it matter?
+   *
+   * @param curr the node to rollout from
+   * @return the value of our randomly rolled out AST
+   */
   double MCTS::rollout(search_node* curr) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -301,6 +363,12 @@ namespace symreg
     return ast->eval(&symbol_table_);
   }
 
+  /**
+   * @brief A recursive method for generating a graph viz representation for
+   * the entire MCTS tree
+   *
+   * @return the graph viz string representation
+   */
   std::string MCTS::to_gv() const {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -312,6 +380,15 @@ namespace symreg
     return ss.str();
   }
 
+  /**
+   * @brief simply returns a random integer in the range [lower, upper] 
+   *
+   * build a uniform integer distribution to be used with the MCTS class' Marsenne twister
+   *
+   * @param lower the lowest possible integer which may be returned
+   * @param upper the highest possible integer which may be returned
+   * @return a random integer on [lower, upper]
+   */
   int MCTS::get_random(int lower, int upper) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
@@ -320,6 +397,11 @@ namespace symreg
     return dist(rng_); 
   }
 
+  /**
+   * @brief a simple getter for the MCTS class' symbol table
+   *
+   * @return a non-const reference to the MCTS class' symbol table
+   */
   std::unordered_map<std::string, double>& MCTS::symbol_table() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
