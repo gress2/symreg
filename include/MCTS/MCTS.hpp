@@ -13,7 +13,8 @@ namespace symreg
   class MCTS {
     private:
       static const int C = 2;
-      static const int num_simulations_ = 40;
+      static const int depth_limit_ = 10;
+      static const int num_simulations_ = 20;
       search_node root_;
       search_node* curr_;
       double rollout(search_node*);
@@ -22,7 +23,7 @@ namespace symreg
       std::vector<search_node*> get_up_link_targets(search_node*);
       search_node* get_earliest_up_link_target(search_node*);
       std::mt19937 rng_;
-      std::unique_ptr<brick::AST::node> get_random_action();
+      std::unique_ptr<brick::AST::node> get_random_action(bool);
       int get_random(int, int);
       std::shared_ptr<brick::AST::AST> build_ast_upward(search_node*);
       std::unordered_map<std::string, double> symbol_table_;

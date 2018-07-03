@@ -198,23 +198,25 @@ namespace symreg
    *
    * A random number is generated and used to return the corresponding node type
    *
+   * @param must_be_terminal a boolean denoting whether the random action must
+   * be a terminal AST node
    * @return a unique pointer to a randomly chosen node type
    */
-  std::unique_ptr<brick::AST::node> MCTS::get_random_action() {
+  std::unique_ptr<brick::AST::node> MCTS::get_random_action(bool must_be_terminal) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
-    int r = get_random(0, 4);
+    int r = get_random(0, must_be_terminal ? 2 : 4);
     if (r == 0) {
       return std::make_unique<brick::AST::number_node>(3);
     } else if (r == 1) {
-      return std::make_unique<brick::AST::addition_node>();
-    } else if (r == 2) {
-      return std::make_unique<brick::AST::multiplication_node>();
-    } else if (r == 3) { 
       return std::make_unique<brick::AST::id_node>("z");
-    } else {
+    } else if (r == 2) {
       return std::make_unique<brick::AST::id_node>("y");
+    } else if (r == 3) { 
+      return std::make_unique<brick::AST::addition_node>();
+    } else {
+      return std::make_unique<brick::AST::multiplication_node>();
     }
   }
 
@@ -244,7 +246,10 @@ namespace symreg
    * starting from curr, the tree is searched upward to find nodes which have
    * available slots for children to be attached. for each of the nodes found,
    * all possible actions are attached to curr and up-linked to the the node. curr may only
-   * be expanded while there are still possible moves to be made. 
+   * be expanded while there are still possible moves to be made. actions are only added when
+   * their addition doesnt lead to ASTs of greater depth than depth_limit_
+   *
+   * Design decision: depth limit
    *
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
@@ -257,12 +262,17 @@ namespace symreg
     if (targets.empty()) {
       return false;
     }
-    std::vector<std::unique_ptr<brick::AST::node>> actions = get_action_set();
     for (search_node* targ : targets) {
+      std::vector<std::unique_ptr<brick::AST::node>> actions = get_action_set();
       for (auto it = actions.begin(); it != actions.end();) {
+        if (targ->get_depth() >= depth_limit_ - 1 && !(*it)->is_terminal()) {
+          it++;
+          continue; 
+        }
         auto child = curr->add_child(std::move(*it));
         child->set_parent(curr);
         child->set_up_link(targ);
+        child->set_depth(targ->get_depth() + 1);
         it = actions.erase(it);
       }
     }
@@ -336,8 +346,10 @@ namespace symreg
    * is not empty, we add random AST nodes to this AST, adding to the queue 
    * when we append non-terminal AST nodes. once we manage to build a full/valid
    * AST, we evaluate the AST using the symbol table member of the MCTS class.
+   * Rollouts may not exceed the depth_limit_ 
    *
    * Design decision: FIFO method of appending random nodes -- does it matter?
+   * Design decision: depth limit
    *
    * @param curr the node to rollout from
    * @return the value of our randomly rolled out AST
@@ -348,11 +360,13 @@ namespace symreg
     #endif
     search_node* rollout_base = curr;
     std::shared_ptr<brick::AST::AST> ast = build_ast_upward(rollout_base);
-    std::queue<std::shared_ptr<brick::AST::AST>> targets;   
+    ast->propagate_depth(0);
+    std::queue<std::shared_ptr<brick::AST::AST>> targets;
     set_targets_from_ast(ast, targets);
     while (!targets.empty()) {
       std::shared_ptr<brick::AST::AST> targ = targets.front();
-      std::shared_ptr<brick::AST::AST> child = targ->add_child(get_random_action());
+      bool must_be_terminal = targ->get_depth() >= depth_limit_ - 1;
+      std::shared_ptr<brick::AST::AST> child = targ->add_child(get_random_action(must_be_terminal));
       if (!child->is_terminal()) {
         targets.push(child); 
       }

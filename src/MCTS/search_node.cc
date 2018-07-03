@@ -17,6 +17,7 @@ namespace symreg
   search_node::search_node(std::unique_ptr<brick::AST::node>&& ast_node)
     : n_(0), 
       v_(0), 
+      depth_(0),
       ast_node_(std::move(ast_node)), 
       parent_(nullptr), 
       up_link_(nullptr)
@@ -32,6 +33,7 @@ namespace symreg
   search_node::search_node(search_node&& other)
     : n_(other.n_),
       v_(other.v_),
+      depth_(other.depth_),
       ast_node_(std::move(other.ast_node_)),
       parent_(other.parent_),
       up_link_(other.up_link_),
@@ -178,6 +180,22 @@ namespace symreg
    */
   void search_node::set_v(double val) {
     v_ = val;
+  }
+
+  /**
+   * @brief a getter for the AST depth of this search node
+   * @return an integer denoting the depth which this node is when converted to AST
+   */
+  int search_node::get_depth() const {
+    return depth_;
+  }
+
+  /**
+   * @brief a setter for the AST depth of this search node
+   * @param val the value with which to use to set depth_
+   */
+  void search_node::set_depth(int val) {
+    depth_ = val;
   }
 
   /**
