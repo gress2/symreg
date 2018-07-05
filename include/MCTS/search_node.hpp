@@ -14,6 +14,7 @@ namespace symreg
       int n_;
       double v_;
       int depth_;
+      int unconnected_;
       std::unique_ptr<brick::AST::node> ast_node_;
       search_node* parent_;
       search_node* up_link_;
@@ -35,6 +36,8 @@ namespace symreg
       void set_v(double);
       int get_depth() const;
       void set_depth(int);
+      int get_unconnected() const;
+      void set_unconnected(int);
       search_node* parent();
       bool is_terminal() const;
       search_node* up_link();

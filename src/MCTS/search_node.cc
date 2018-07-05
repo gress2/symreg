@@ -18,6 +18,7 @@ namespace symreg
     : n_(0), 
       v_(0), 
       depth_(0),
+      unconnected_(1),
       ast_node_(std::move(ast_node)), 
       parent_(nullptr), 
       up_link_(nullptr)
@@ -34,6 +35,7 @@ namespace symreg
     : n_(other.n_),
       v_(other.v_),
       depth_(other.depth_),
+      unconnected_(other.unconnected_),
       ast_node_(std::move(other.ast_node_)),
       parent_(other.parent_),
       up_link_(other.up_link_),
@@ -70,7 +72,8 @@ namespace symreg
   std::string search_node::to_gv() const {
     std::stringstream ss;
     auto node_id = ast_node_->get_node_id();
-    ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() << "\"]" << std::endl;
+    auto shorter = node_id.substr(0, 3);
+    ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() << " : " << shorter << "\"]" << std::endl;
     if (up_link_) {
       ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << std::endl;
     }
@@ -196,6 +199,14 @@ namespace symreg
    */
   void search_node::set_depth(int val) {
     depth_ = val;
+  }
+
+  int search_node::get_unconnected() const {
+    return unconnected_;
+  }
+
+  void search_node::set_unconnected(int val) {
+    unconnected_ = val;
   }
 
   /**

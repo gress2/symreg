@@ -4,6 +4,7 @@
 
 #include "MCTS/MCTS.hpp"
 
+using AST = brick::AST::AST;
 namespace symreg
 {
   /**
@@ -28,8 +29,7 @@ namespace symreg
    * This function iteratively does the following:
    *  1) A leaf node in the MCTS tree is chosen based on some heuristics
    *  2) If the leaf node has already been rolled out from, the leaf node
-   *     is expanded and we set the leaf node pointer to the first child
-   *     added in the expansion
+   *     is expanded and we set the leaf node pointer to the first child *     added in the expansion
    *  3) A random rollout is performed from the leaf node
    *  4) The value of the rollout is backpropagated up the tree.
    * 
@@ -202,21 +202,21 @@ namespace symreg
    * be a terminal AST node
    * @return a unique pointer to a randomly chosen node type
    */
-  std::unique_ptr<brick::AST::node> MCTS::get_random_action(bool must_be_terminal) {
+  std::unique_ptr<brick::AST::node> MCTS::get_random_action(int max_arity) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
-    int r = get_random(0, must_be_terminal ? 2 : 4);
-    if (r == 0) {
-      return std::make_unique<brick::AST::number_node>(3);
-    } else if (r == 1) {
-      return std::make_unique<brick::AST::id_node>("z");
-    } else if (r == 2) {
-      return std::make_unique<brick::AST::id_node>("y");
-    } else if (r == 3) { 
-      return std::make_unique<brick::AST::addition_node>();
-    } else {
-      return std::make_unique<brick::AST::multiplication_node>();
+
+    // TODO: make this better
+    while (true) {
+      int r = get_random(0, 3); 
+      if (r == 0) {
+        return std::make_unique<brick::AST::number_node>(3);
+      } else if (r == 1) {
+        return std::make_unique<brick::AST::id_node>("z");
+      } else if (r == 2 && max_arity > 1) {
+        return std::make_unique<brick::AST::addition_node>();
+      }
     }
   }
 
@@ -228,14 +228,23 @@ namespace symreg
    *
    * @return a vector of unique pointers for all possible node types
    */
-  std::vector<std::unique_ptr<brick::AST::node>> MCTS::get_action_set() {
+  std::vector<std::unique_ptr<brick::AST::node>> MCTS::get_action_set(int max_action_arity) {
+    std::cout << max_action_arity << std::endl;
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
     std::vector<std::unique_ptr<brick::AST::node>> actions;
-    actions.push_back(std::make_unique<brick::AST::addition_node>());
+    // binary operators
+    if (max_action_arity >= 2) {
+      actions.push_back(std::make_unique<brick::AST::addition_node>());
+    }
+    // unary operators
+    if (max_action_arity >= 1) {
+    
+    }
+    // terminals
     actions.push_back(std::make_unique<brick::AST::number_node>(3));
-    actions.push_back(std::make_unique<brick::AST::multiplication_node>());
+    actions.push_back(std::make_unique<brick::AST::id_node>("z"));
     return actions; 
   }
 
@@ -263,16 +272,25 @@ namespace symreg
       return false;
     }
     for (search_node* targ : targets) {
-      std::vector<std::unique_ptr<brick::AST::node>> actions = get_action_set();
+
+      auto parent_depth = targ->get_depth();
+      auto unconnected = targ->get_unconnected();
+      auto max_child_arity = depth_limit_ - (parent_depth + unconnected);
+
+      if (parent_depth >= depth_limit_) {
+        continue;
+      }
+
+      std::vector<std::unique_ptr<brick::AST::node>> 
+        actions = get_action_set(max_child_arity);
+
       for (auto it = actions.begin(); it != actions.end();) {
-        if (targ->get_depth() >= depth_limit_ - 1 && !(*it)->is_terminal()) {
-          it++;
-          continue; 
-        }
         auto child = curr->add_child(std::move(*it));
         child->set_parent(curr);
         child->set_up_link(targ);
         child->set_depth(targ->get_depth() + 1);
+        child->set_unconnected(
+            targ->get_unconnected() - 1 + child->ast_node()->num_children());
         it = actions.erase(it);
       }
     }
@@ -288,21 +306,21 @@ namespace symreg
    * @param bottom the MCTS search node to start building the AST from
    * @return a shared pointer to the root of the AST which was built
    */
-  std::shared_ptr<brick::AST::AST> MCTS::build_ast_upward(search_node* bottom) {
+  std::shared_ptr<AST> MCTS::build_ast_upward(search_node* bottom) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
     search_node* cur = bottom;
     search_node* root = &root_;
-    std::map<search_node*, std::shared_ptr<brick::AST::AST>> search_to_ast;
+    std::map<search_node*, std::shared_ptr<AST>> search_to_ast;
 
     while (cur != root) {
-      search_to_ast[cur] = std::make_shared<brick::AST::AST>
+      search_to_ast[cur] = std::make_shared<AST>
         (std::unique_ptr<brick::AST::node>(cur->ast_node()->clone()));
       cur = cur->parent();
     }
 
-    search_to_ast[root] = std::make_shared<brick::AST::AST>
+    search_to_ast[root] = std::make_shared<AST>
       (std::unique_ptr<brick::AST::node>(root->ast_node()->clone()));
     cur = bottom;
 
@@ -325,18 +343,20 @@ namespace symreg
    * @param targets a reference to a queue of ast shared pointers to
    * be filled
    */
-  void set_targets_from_ast(std::shared_ptr<brick::AST::AST> ast, 
-    std::queue<std::shared_ptr<brick::AST::AST>>& targets) {
+  void set_targets_from_ast(std::shared_ptr<AST> ast, 
+    std::queue<std::shared_ptr<AST>>& targets) {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
     if (!ast->is_full()) {
       targets.push(ast);
     }
-    for (std::shared_ptr<brick::AST::AST>& child : ast->get_children()) {
+    for (std::shared_ptr<AST>& child : ast->get_children()) {
       set_targets_from_ast(child, targets);
     } 
   }
+
+
 
   /**
    * @brief performs a random rollout starting from a search node in the MCTS
@@ -359,14 +379,20 @@ namespace symreg
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
     search_node* rollout_base = curr;
-    std::shared_ptr<brick::AST::AST> ast = build_ast_upward(rollout_base);
-    ast->propagate_depth(0);
-    std::queue<std::shared_ptr<brick::AST::AST>> targets;
+    std::shared_ptr<AST> ast = build_ast_upward(rollout_base);
+
+    std::queue<std::shared_ptr<AST>> targets;
     set_targets_from_ast(ast, targets);
+
+    auto size = ast->get_size();
+    auto num_unconnected = ast->get_num_unconnected();
+
     while (!targets.empty()) {
-      std::shared_ptr<brick::AST::AST> targ = targets.front();
-      bool must_be_terminal = targ->get_depth() >= depth_limit_ - 1;
-      std::shared_ptr<brick::AST::AST> child = targ->add_child(get_random_action(must_be_terminal));
+      auto max_child_arity = depth_limit_ - (size + num_unconnected);
+      std::shared_ptr<AST> targ = targets.front();
+      std::shared_ptr<AST> child = targ->add_child(get_random_action(max_child_arity));
+      size++;
+      num_unconnected += child->vacancy() - 1;
       if (!child->is_terminal()) {
         targets.push(child); 
       }
@@ -374,6 +400,7 @@ namespace symreg
         targets.pop();
       }
     }
+    std::cout << ast->to_string() << std::endl;
     return ast->eval(&symbol_table_);
   }
 
@@ -421,5 +448,18 @@ namespace symreg
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
     return symbol_table_;
+  }
+
+  /**
+   * @brief Returns the AST which this MCTS has currently
+   * decided is optimal
+   *
+   * @return a shared pointer to an AST
+   */
+  std::shared_ptr<AST> MCTS::build_result() {
+    #ifdef DEBUG
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    #endif
+    return build_ast_upward(curr_);
   }
 }
