@@ -146,10 +146,6 @@ namespace symreg
         max_node = &child;
       } 
     }
-    if (max_node == nullptr) {
-      std::cerr << "Something went wrong in search_node::max_UCB1().";
-      std::cerr << " Did the search node have children?" << std::endl;
-    }
     return max_node;
   }
 

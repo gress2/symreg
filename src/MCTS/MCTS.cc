@@ -44,9 +44,7 @@ namespace symreg
       if (leaf->visited()) {
         if (add_actions(leaf)) {
           leaf = &(leaf->get_children()[0]);
-        } else {
-          std::cout << "no actions added to this leaf" << std::endl;
-        }
+        }      
       }
       double value = rollout(leaf);
       backprop(value, leaf);
@@ -69,7 +67,10 @@ namespace symreg
     for (std::size_t i = 0; i < n; i++) {
       std::cout << "Iteration: " << i << std::endl;
       simulate();
-      make_move();
+      bool did_move = make_move();
+      if (!did_move) {
+        break;
+      }
     }
   }
 
@@ -82,11 +83,16 @@ namespace symreg
    *
    * Design decision: this method
    */
-  void MCTS::make_move() {
+  bool MCTS::make_move() {
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
-    curr_ = curr_->max_UCB1();
+    search_node* next = curr_->max_UCB1();
+    if (next) {
+      curr_ = next;
+      return true;
+    } 
+    return false;
   }
 
   /**
@@ -209,13 +215,19 @@ namespace symreg
 
     // TODO: make this better
     while (true) {
-      int r = get_random(0, 3); 
+      int r = get_random(0, 5); 
       if (r == 0) {
         return std::make_unique<brick::AST::number_node>(3);
       } else if (r == 1) {
+        return std::make_unique<brick::AST::id_node>("x");
+      } else if (r == 2) {
+        return std::make_unique<brick::AST::id_node>("y");
+      } else if (r == 3) {
         return std::make_unique<brick::AST::id_node>("z");
-      } else if (r == 2 && max_arity > 1) {
+      } else if (r == 4 && max_arity > 1) {
         return std::make_unique<brick::AST::addition_node>();
+      } else if (r == 5 && max_arity > 1) {
+        return std::make_unique<brick::AST::multiplication_node>();
       }
     }
   }
@@ -229,7 +241,6 @@ namespace symreg
    * @return a vector of unique pointers for all possible node types
    */
   std::vector<std::unique_ptr<brick::AST::node>> MCTS::get_action_set(int max_action_arity) {
-    std::cout << max_action_arity << std::endl;
     #ifdef DEBUG 
     std::cout << __PRETTY_FUNCTION__ << std::endl;
     #endif
@@ -237,13 +248,15 @@ namespace symreg
     // binary operators
     if (max_action_arity >= 2) {
       actions.push_back(std::make_unique<brick::AST::addition_node>());
+      actions.push_back(std::make_unique<brick::AST::multiplication_node>());
     }
     // unary operators
     if (max_action_arity >= 1) {
-    
     }
     // terminals
     actions.push_back(std::make_unique<brick::AST::number_node>(3));
+    actions.push_back(std::make_unique<brick::AST::id_node>("x"));
+    actions.push_back(std::make_unique<brick::AST::id_node>("y"));
     actions.push_back(std::make_unique<brick::AST::id_node>("z"));
     return actions; 
   }
@@ -271,16 +284,14 @@ namespace symreg
     if (targets.empty()) {
       return false;
     }
+    auto parent_depth = curr->get_depth();
+    auto unconnected = curr->get_unconnected();
+    auto max_child_arity = depth_limit_ - (parent_depth + unconnected);
+
+    if (parent_depth >= depth_limit_) {
+      return false;
+    }
     for (search_node* targ : targets) {
-
-      auto parent_depth = targ->get_depth();
-      auto unconnected = targ->get_unconnected();
-      auto max_child_arity = depth_limit_ - (parent_depth + unconnected);
-
-      if (parent_depth >= depth_limit_) {
-        continue;
-      }
-
       std::vector<std::unique_ptr<brick::AST::node>> 
         actions = get_action_set(max_child_arity);
 
@@ -288,9 +299,9 @@ namespace symreg
         auto child = curr->add_child(std::move(*it));
         child->set_parent(curr);
         child->set_up_link(targ);
-        child->set_depth(targ->get_depth() + 1);
+        child->set_depth(curr->get_depth() + 1);
         child->set_unconnected(
-            targ->get_unconnected() - 1 + child->ast_node()->num_children());
+            curr->get_unconnected() - 1 + child->ast_node()->num_children());
         it = actions.erase(it);
       }
     }
@@ -356,8 +367,6 @@ namespace symreg
     } 
   }
 
-
-
   /**
    * @brief performs a random rollout starting from a search node in the MCTS
    *
@@ -400,7 +409,6 @@ namespace symreg
         targets.pop();
       }
     }
-    std::cout << ast->to_string() << std::endl;
     return ast->eval(&symbol_table_);
   }
 

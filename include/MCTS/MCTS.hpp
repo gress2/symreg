@@ -12,8 +12,8 @@ namespace symreg
 {
   class MCTS {
     private:
-      static const int C = 2;
-      static const int depth_limit_ = 5;
+      static const int C = 15;
+      static const int depth_limit_ = 7;
       static const int num_simulations_ = 20;
       search_node root_;
       search_node* curr_;
@@ -29,7 +29,7 @@ namespace symreg
       std::unordered_map<std::string, double> symbol_table_;
       std::vector<std::unique_ptr<brick::AST::node>> get_action_set(int);
       void simulate();
-      void make_move();
+      bool make_move();
       search_node* choose_leaf();
     public:
       MCTS();
