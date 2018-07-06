@@ -197,10 +197,18 @@ namespace symreg
     depth_ = val;
   }
 
+  /**
+   * @brief a getter for the number of missing children in the implicit AST
+   * @return the number of missing children in the implicit AST
+   */
   int search_node::get_unconnected() const {
     return unconnected_;
   }
 
+  /**
+   * @brief a setter for the number of missing children in the implicit AST
+   * @param val the value with which to use to set unconnected_
+   */
   void search_node::set_unconnected(int val) {
     unconnected_ = val;
   }

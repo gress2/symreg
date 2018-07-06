@@ -29,16 +29,14 @@ namespace symreg
    * This function iteratively does the following:
    *  1) A leaf node in the MCTS tree is chosen based on some heuristics
    *  2) If the leaf node has already been rolled out from, the leaf node
-   *     is expanded and we set the leaf node pointer to the first child *     added in the expansion
+   *     is expanded and we set the leaf node pointer to the first child 
+   *     added in the expansion
    *  3) A random rollout is performed from the leaf node
    *  4) The value of the rollout is backpropagated up the tree.
    * 
    * Design decision: in step 2, the first child is always chosen
    */
   void MCTS::simulate() {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     for (std::size_t i = 0; i < num_simulations_; i++) {
       search_node* leaf = choose_leaf();
       if (leaf->visited()) {
@@ -57,13 +55,12 @@ namespace symreg
    * A simple loop which first runs a simulation step
    * which explores/expands the tree followed by a step
    * which heuristically decides a move to take in the tree.
+   * If make_move() returns false, a move was not made in the
+   * game, and the game is over.
    * 
    * @param n number determining how many time we wish to loop
    */
   void MCTS::iterate(std::size_t n) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     for (std::size_t i = 0; i < n; i++) {
       std::cout << "Iteration: " << i << std::endl;
       simulate();
@@ -82,11 +79,10 @@ namespace symreg
    * node of the current node with the highest UCB1 value.
    *
    * Design decision: this method
+   *
+   * @return a boolean telling whether or not a move was made
    */
   bool MCTS::make_move() {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     search_node* next = curr_->max_UCB1();
     if (next) {
       curr_ = next;
@@ -106,9 +102,6 @@ namespace symreg
    * Design decision: this method
    */
   search_node* MCTS::choose_leaf() {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     search_node* leaf = curr_;
     while (!leaf->is_leaf_node()) {
       leaf = leaf->max_UCB1();
@@ -130,9 +123,6 @@ namespace symreg
    * @param curr a pointer to the leaf node which was rolled out
    */
   void MCTS::backprop(double value, search_node* curr) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     while (curr) {
       curr->set_v(curr->get_v() + value);
       curr->set_n(curr->get_n() + 1);
@@ -153,22 +143,21 @@ namespace symreg
    * @return A vector containing potential parent targets for new descendants to link to
    */
   std::vector<search_node*> MCTS::get_up_link_targets(search_node* curr) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
+    // create a map of nodes and how many descendant nodes point to it (number of children)
     std::map<search_node*, int> targets; 
-    search_node* ancestor = curr;
-    while (ancestor != nullptr) {
-      if (!ancestor->is_terminal()) {
-        if (!targets.count(ancestor)) {
-          targets[ancestor] = 0;
+    search_node* tmp = curr;
+    while (tmp != nullptr) {
+      if (!tmp->is_terminal()) { // don't care about terminal nodes
+        if (!targets.count(tmp)) {
+          targets[tmp] = 0;
         }
       }
-      if (ancestor->up_link()) {
-        targets[ancestor->up_link()] += 1;
+      if (tmp->up_link()) {
+        targets[tmp->up_link()] += 1;
       }
-      ancestor = ancestor->parent();
+      tmp = tmp->parent();
     }
+    // create a vector of nodes with less children than they should have
     std::vector<search_node*> avail_targets;
     for (auto r_it = targets.rbegin(); r_it != targets.rend(); ++r_it) {
       if (r_it->second < r_it->first->ast_node()->num_children()) {
@@ -188,9 +177,6 @@ namespace symreg
    * @return the earliest parent target in this path of the MCTS tree
    */
   search_node* MCTS::get_earliest_up_link_target(search_node* curr) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
@@ -200,36 +186,35 @@ namespace symreg
   }
 
   /**
+   * @brief Gets a random ancestor of a node which may be used for a parent connection
+   *
+   * Simply calls get_up_link_targets() and chooses one at random
+   *
+   * @param curr the node from which we start the parent search
+   * @return a random parent target in this path of the MCTS tree
+   */ 
+  search_node* MCTS::get_random_up_link_target(search_node* curr) {
+    auto targets = get_up_link_targets(curr);
+    if (targets.empty()) {
+      return nullptr;
+    }
+    int random = get_random(0, targets.size() - 1);
+    return targets[random];
+  }
+
+  /**
    * @brief returns a unique pointer to a randomly chosen AST node type
    *
    * A random number is generated and used to return the corresponding node type
    *
-   * @param must_be_terminal a boolean denoting whether the random action must
-   * be a terminal AST node
+   * @param max_arity the maximum arity of the returned node i.e. the maximum number
+   * of children the node type may support 
    * @return a unique pointer to a randomly chosen node type
    */
   std::unique_ptr<brick::AST::node> MCTS::get_random_action(int max_arity) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
-
-    // TODO: make this better
-    while (true) {
-      int r = get_random(0, 5); 
-      if (r == 0) {
-        return std::make_unique<brick::AST::number_node>(3);
-      } else if (r == 1) {
-        return std::make_unique<brick::AST::id_node>("x");
-      } else if (r == 2) {
-        return std::make_unique<brick::AST::id_node>("y");
-      } else if (r == 3) {
-        return std::make_unique<brick::AST::id_node>("z");
-      } else if (r == 4 && max_arity > 1) {
-        return std::make_unique<brick::AST::addition_node>();
-      } else if (r == 5 && max_arity > 1) {
-        return std::make_unique<brick::AST::multiplication_node>();
-      }
-    }
+    std::vector<std::unique_ptr<brick::AST::node>> action_set = get_action_set(max_arity);
+    int random = get_random(0, action_set.size() - 1);
+    return std::move(action_set[random]);
   }
 
   /**
@@ -238,12 +223,11 @@ namespace symreg
    * a vector is created and unique pointers to all AST node types are pushed
    * onto the vector
    *
+   * @param max_action_arity the maximum arity of the returned nodes i.e. the maximum number
+   * of children the nodes support
    * @return a vector of unique pointers for all possible node types
    */
   std::vector<std::unique_ptr<brick::AST::node>> MCTS::get_action_set(int max_action_arity) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     std::vector<std::unique_ptr<brick::AST::node>> actions;
     // binary operators
     if (max_action_arity >= 2) {
@@ -277,21 +261,22 @@ namespace symreg
    * @return a boolean denoting whether or not the node was expanded
    */
   bool MCTS::add_actions(search_node* curr) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
+    // find nodes above in the MCTS tree which need children in the AST sense
     std::vector<search_node*> targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return false;
     }
-    auto parent_depth = curr->get_depth();
-    auto unconnected = curr->get_unconnected();
+    auto parent_depth = curr->get_depth(); // how many symbols deep are we in this MCTS path
+    auto unconnected = curr->get_unconnected(); // how many children are still needed to complete this AST
+    // don't add nodes which will cause us to exceed depth limit
     auto max_child_arity = depth_limit_ - (parent_depth + unconnected);
 
+    // if we're already at max depth, don't add any more nodes
     if (parent_depth >= depth_limit_) {
       return false;
     }
     for (search_node* targ : targets) {
+      // we're moving these nodes so have to get a new action set each iteration
       std::vector<std::unique_ptr<brick::AST::node>> 
         actions = get_action_set(max_child_arity);
 
@@ -301,7 +286,10 @@ namespace symreg
         child->set_up_link(targ);
         child->set_depth(curr->get_depth() + 1);
         child->set_unconnected(
-            curr->get_unconnected() - 1 + child->ast_node()->num_children());
+            curr->get_unconnected() - 1 + child->ast_node()->num_children()
+        );
+        // we must erase these from the vector after they are moved otherwise
+        // the memory gets freed when the vector goes out of scope. TODO: can we avoid this?
         it = actions.erase(it);
       }
     }
@@ -318,9 +306,6 @@ namespace symreg
    * @return a shared pointer to the root of the AST which was built
    */
   std::shared_ptr<AST> MCTS::build_ast_upward(search_node* bottom) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     search_node* cur = bottom;
     search_node* root = &root_;
     std::map<search_node*, std::shared_ptr<AST>> search_to_ast;
@@ -356,9 +341,6 @@ namespace symreg
    */
   void set_targets_from_ast(std::shared_ptr<AST> ast, 
     std::queue<std::shared_ptr<AST>>& targets) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     if (!ast->is_full()) {
       targets.push(ast);
     }
@@ -384,9 +366,6 @@ namespace symreg
    * @return the value of our randomly rolled out AST
    */
   double MCTS::rollout(search_node* curr) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     search_node* rollout_base = curr;
     std::shared_ptr<AST> ast = build_ast_upward(rollout_base);
 
@@ -397,8 +376,11 @@ namespace symreg
     auto num_unconnected = ast->get_num_unconnected();
 
     while (!targets.empty()) {
+      // same type of logic as in add_actions(). don't add nodes to the AST which will
+      // cause the AST to be larger than max depth (max size)
       auto max_child_arity = depth_limit_ - (size + num_unconnected);
       std::shared_ptr<AST> targ = targets.front();
+      // add actions randomly
       std::shared_ptr<AST> child = targ->add_child(get_random_action(max_child_arity));
       size++;
       num_unconnected += child->vacancy() - 1;
@@ -419,9 +401,6 @@ namespace symreg
    * @return the graph viz string representation
    */
   std::string MCTS::to_gv() const {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     std::stringstream ss;
     ss << "digraph {" << std::endl;
     ss << root_.to_gv();
@@ -439,9 +418,6 @@ namespace symreg
    * @return a random integer on [lower, upper]
    */
   int MCTS::get_random(int lower, int upper) {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     std::uniform_int_distribution<std::mt19937::result_type> dist(lower, upper);
     return dist(rng_); 
   }
@@ -452,9 +428,6 @@ namespace symreg
    * @return a non-const reference to the MCTS class' symbol table
    */
   std::unordered_map<std::string, double>& MCTS::symbol_table() {
-    #ifdef DEBUG 
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     return symbol_table_;
   }
 
@@ -465,9 +438,6 @@ namespace symreg
    * @return a shared pointer to an AST
    */
   std::shared_ptr<AST> MCTS::build_result() {
-    #ifdef DEBUG
-    std::cout << __PRETTY_FUNCTION__ << std::endl;
-    #endif
     return build_ast_upward(curr_);
   }
 }

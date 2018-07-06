@@ -22,6 +22,7 @@ namespace symreg
       void backprop(double, search_node*);
       std::vector<search_node*> get_up_link_targets(search_node*);
       search_node* get_earliest_up_link_target(search_node*);
+      search_node* get_random_up_link_target(search_node*);
       std::mt19937 rng_;
       std::unique_ptr<brick::AST::node> get_random_action(int);
       int get_random(int, int);
