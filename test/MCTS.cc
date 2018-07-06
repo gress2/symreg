@@ -1,10 +1,10 @@
 #include <iostream>
 
-#include "MCTS/MCTS.hpp"
+#include "symreg.hpp"
 #include "gtest/gtest.h"
 
 TEST(Stuff, WhoCares) {
-  symreg::MCTS mcts;
+  symreg::MCTS mcts{};
   mcts.symbol_table().insert({"x", -8});
   mcts.symbol_table().insert({"y", 10});
   mcts.symbol_table().insert({"z", 5});

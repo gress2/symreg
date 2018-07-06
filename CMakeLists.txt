@@ -30,8 +30,6 @@ endif()
 add_subdirectory("./deps/Brick")
 link_directories(${ANTLR4CPP_LIBS})
 
-add_subdirectory("./src")
-
 option (MAKE_TESTS "MAKE_TESTS" OFF)
 
 if (symreg_tests)
