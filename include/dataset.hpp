@@ -1,6 +1,8 @@
 #ifndef SYMREG_DATASET_HPP_
 #define SYMREG_DATASET_HPP_
 
+#include <vector>
+
 namespace symreg 
 {
 

@@ -1,11 +1,13 @@
 #ifndef SYMREG_MCTS_MCTS_HPP_
 #define SYMREG_MCTS_MCTS_HPP_
+
 #include <iostream>
 #include <map>
 #include <memory>
 #include <queue> 
 #include <random>
 #include <unordered_map>
+#include <vector>
 
 #include "brick.hpp"
 #include "dataset.hpp"
@@ -23,12 +25,15 @@ namespace symreg
     double sum = 0;
     for (std::size_t i = 0; i < ds.x.size(); i++) {
        auto& xi = ds.x[i];
-       sum += std::pow(ast.eval(xi) - ds.y[i], 2); 
+       sum += std::pow(ast->eval(xi) - ds.y[i], 2); 
     }
-    return -sum;
+    double mse = sum / ds.x.size();
+    std::cout << ast->to_string() << std::endl;
+    std::cout << "Loss: " << mse << std::endl;
+    return -mse;
   }; 
 
-  template <class MAB, class ValFn = decltype(UCB1), class ValueFunction = decltype(MSE)>
+  template <class MAB = decltype(UCB1), class ScoreFn = decltype(MSE)>
   class MCTS {
     private:
       // STATIC MEMBERS
@@ -37,10 +42,10 @@ namespace symreg
       // MEMBERS
       search_node root_;
       search_node* curr_;
-      MultiArmedBandit mab_fn_;
-      ValueFunction val_fn_;
+      MAB mab_fn_;
+      ScoreFn score_fn_;
       std::mt19937 rng_;
-      std::unordered_map<std::string, double> symbol_table_;
+      dataset dataset_; 
       int num_dim_;
       // PRIMARY FUNCTIONALITIES
       double rollout(search_node*);
@@ -59,15 +64,13 @@ namespace symreg
       std::vector<std::unique_ptr<brick::AST::node>> get_action_set(int);
       search_node* max_score_child(search_node*);
       // TEMPLATE CONFIGURABLE
-      template<class...Args>
-      auto MAB(Args... args) -> std::result_of_t<MultiArmedBandit(Args...)>; 
-      template<class...Args>
-      double value(Args... args) -> std::result_of_t<ValueFunction(Args...)>;
+      double multi_armed_bandit(double, int, int);
+      double score(std::shared_ptr<brick::AST::AST>&);
     public:
-      MCTS(const MultiArmedBandit& = UCB1, const ValueFunction& = MSE);
+      MCTS(int, const MAB& = UCB1, const ScoreFn& = MSE);
       void iterate(std::size_t);
       std::string to_gv() const;
-      std::unordered_map<std::string, double>& symbol_table();
+      dataset& dataset();
       std::shared_ptr<brick::AST::AST> build_result();
   };
 
@@ -79,13 +82,13 @@ namespace symreg
    * The curr_ pointer is initialized to point at this search node.
    * Additionally, the classes random number generator instance is seeded.
    */
-  template <class MAB, class ValFn>
-  MCTS<MAB, ValFn>::MCTS(const MultiArmedBandit& mab, const ValueFunction& val_fn)
+  template <class MAB, class ScoreFn>
+  MCTS<MAB, ScoreFn>::MCTS(int num_dim, const MAB& mab, const ScoreFn& score_fn)
     : root_(search_node(std::make_unique<brick::AST::posit_node>())),
       curr_(&root_),
       mab_fn_(mab),
-      val_fn_(val_fn),
-      num_dim_(2)
+      score_fn_(score_fn),
+      num_dim_(num_dim)
   { 
     rng_.seed(std::random_device()()); 
     add_actions(curr_);
@@ -104,8 +107,8 @@ namespace symreg
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class MAB, class ValFn>
-  void MCTS<MAB, ValFn>::simulate() {
+  template <class MAB, class ScoreFn>
+  void MCTS<MAB, ScoreFn>::simulate() {
     for (std::size_t i = 0; i < num_simulations_; i++) {
       search_node* leaf = choose_leaf();
       if (leaf->visited()) {
@@ -129,8 +132,8 @@ namespace symreg
    * 
    * @param n number determining how many time we wish to loop
    */
-  template <class MAB, class ValFn>
-  void MCTS<MAB, ValFn>::iterate(std::size_t n) {
+  template <class MAB, class ScoreFn>
+  void MCTS<MAB, ScoreFn>::iterate(std::size_t n) {
     for (std::size_t i = 0; i < n; i++) {
       std::cout << "Iteration: " << i << std::endl;
       simulate();
@@ -152,8 +155,8 @@ namespace symreg
    *
    * @return a boolean telling whether or not a move was made
    */
-  template <class MAB, class ValFn>
-  bool MCTS<MAB, ValFn>::make_move() {
+  template <class MAB, class ScoreFn>
+  bool MCTS<MAB, ScoreFn>::make_move() {
     search_node* next = max_score_child(curr_);
     if (next) {
       curr_ = next;
@@ -173,15 +176,15 @@ namespace symreg
    * @return a pointer to the child of a search node with highest UCB1 value
    * if children exist, a nullptr otherwise.
    */
-  template <class MAB, class ValFn>
-  search_node* MCTS<MAB, ValFn>::max_score_child(search_node* node) {
+  template <class MAB, class ScoreFn>
+  search_node* MCTS<MAB, ScoreFn>::max_score_child(search_node* node) {
     double max = -std::numeric_limits<double>::infinity();
     search_node* max_node = nullptr;
     for (auto& child : node->get_children()) {
       if (child.get_n() == 0) {
         return &child;
       }
-      double score = MAB(child.get_v(), child.get_n(), node->get_n());
+      double score = multi_armed_bandit(child.get_v(), child.get_n(), node->get_n());
       if (score > max) {
         max = score;
         max_node = &child;
@@ -200,8 +203,8 @@ namespace symreg
    *
    * Design decision: this method
    */
-  template <class MAB, class ValFn>
-  search_node* MCTS<MAB, ValFn>::choose_leaf() {
+  template <class MAB, class ScoreFn>
+  search_node* MCTS<MAB, ScoreFn>::choose_leaf() {
     search_node* leaf = curr_;
     while (!leaf->is_leaf_node()) {
       leaf = max_score_child(leaf);
@@ -222,8 +225,8 @@ namespace symreg
    * @param value the value of the rollout to be propagated upward
    * @param curr a pointer to the leaf node which was rolled out
    */
-  template <class MAB, class ValFn>
-  void MCTS<MAB, ValFn>::backprop(double value, search_node* curr) {
+  template <class MAB, class ScoreFn>
+  void MCTS<MAB, ScoreFn>::backprop(double value, search_node* curr) {
     while (curr) {
       curr->set_v(curr->get_v() + value);
       curr->set_n(curr->get_n() + 1);
@@ -243,8 +246,8 @@ namespace symreg
    * @param curr A search node for which we wish to find potential parent targets at or above 
    * @return A vector containing potential parent targets for new descendants to link to
    */
-  template <class MAB, class ValFn>
-  std::vector<search_node*> MCTS<MAB, ValFn>::get_up_link_targets(search_node* curr) {
+  template <class MAB, class ScoreFn>
+  std::vector<search_node*> MCTS<MAB, ScoreFn>::get_up_link_targets(search_node* curr) {
     // create a map of nodes and how many descendant nodes point to it (number of children)
     std::map<search_node*, int> targets; 
     search_node* tmp = curr;
@@ -278,8 +281,8 @@ namespace symreg
    * @param curr the node for which we start the parent search
    * @return the earliest parent target in this path of the MCTS tree
    */
-  template <class MAB, class ValFn>
-  search_node* MCTS<MAB, ValFn>::get_earliest_up_link_target(search_node* curr) {
+  template <class MAB, class ScoreFn>
+  search_node* MCTS<MAB, ScoreFn>::get_earliest_up_link_target(search_node* curr) {
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
@@ -296,8 +299,8 @@ namespace symreg
    * @param curr the node from which we start the parent search
    * @return a random parent target in this path of the MCTS tree
    */ 
-  template <class MAB, class ValFn>
-  search_node* MCTS<MAB, ValFn>::get_random_up_link_target(search_node* curr) {
+  template <class MAB, class ScoreFn>
+  search_node* MCTS<MAB, ScoreFn>::get_random_up_link_target(search_node* curr) {
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
@@ -315,8 +318,8 @@ namespace symreg
    * of children the node type may support 
    * @return a unique pointer to a randomly chosen node type
    */
-  template <class MAB, class ValFn>
-  std::unique_ptr<brick::AST::node> MCTS<MAB, ValFn>::get_random_action(int max_arity) {
+  template <class MAB, class ScoreFn>
+  std::unique_ptr<brick::AST::node> MCTS<MAB, ScoreFn>::get_random_action(int max_arity) {
     std::vector<std::unique_ptr<brick::AST::node>> action_set = get_action_set(max_arity);
     int random = get_random(0, action_set.size() - 1);
     return std::move(action_set[random]);
@@ -332,8 +335,8 @@ namespace symreg
    * of children the nodes support
    * @return a vector of unique pointers for all possible node types
    */
-  template <class MAB, class ValFn>
-  std::vector<std::unique_ptr<brick::AST::node>> MCTS<MAB, ValFn>::get_action_set(int max_action_arity) {
+  template <class MAB, class ScoreFn>
+  std::vector<std::unique_ptr<brick::AST::node>> MCTS<MAB, ScoreFn>::get_action_set(int max_action_arity) {
     std::vector<std::unique_ptr<brick::AST::node>> actions;
     // binary operators
     if (max_action_arity >= 2) {
@@ -347,7 +350,7 @@ namespace symreg
     actions.push_back(std::make_unique<brick::AST::number_node>(3));
 
     for (int i = 0; i < num_dim_; i++) {
-      actions.push_back(std::make_unique<brick::AST::id_node>("x" + std::to_string(i)));
+      actions.push_back(std::make_unique<brick::AST::id_node>("_x" + std::to_string(i)));
     }
 
     return actions; 
@@ -368,8 +371,8 @@ namespace symreg
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class MAB, class ValFn>
-  bool MCTS<MAB, ValFn>::add_actions(search_node* curr) {
+  template <class MAB, class ScoreFn>
+  bool MCTS<MAB, ScoreFn>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
     std::vector<search_node*> targets = get_up_link_targets(curr);
     if (targets.empty()) {
@@ -414,8 +417,8 @@ namespace symreg
    * @param bottom the MCTS search node to start building the AST from
    * @return a shared pointer to the root of the AST which was built
    */
-  template <class MAB, class ValFn>
-  std::shared_ptr<AST> MCTS<MAB, ValFn>::build_ast_upward(search_node* bottom) {
+  template <class MAB, class ScoreFn>
+  std::shared_ptr<AST> MCTS<MAB, ScoreFn>::build_ast_upward(search_node* bottom) {
     search_node* cur = bottom;
     search_node* root = &root_;
     std::map<search_node*, std::shared_ptr<AST>> search_to_ast;
@@ -475,8 +478,8 @@ namespace symreg
    * @param curr the node to rollout from
    * @return the value of our randomly rolled out AST
    */
-  template <class MAB, class ValFn>
-  double MCTS<MAB, ValFn>::rollout(search_node* curr) {
+  template <class MAB, class ScoreFn>
+  double MCTS<MAB, ScoreFn>::rollout(search_node* curr) {
     search_node* rollout_base = curr;
     std::shared_ptr<AST> ast = build_ast_upward(rollout_base);
 
@@ -502,7 +505,7 @@ namespace symreg
         targets.pop();
       }
     }
-    return value(ast);
+    return score(ast);
   }
 
   /**
@@ -511,8 +514,8 @@ namespace symreg
    *
    * @return the graph viz string representation
    */
-  template <class MAB, class ValFn>
-  std::string MCTS<MAB, ValFn>::to_gv() const {
+  template <class MAB, class ScoreFn>
+  std::string MCTS<MAB, ScoreFn>::to_gv() const {
     std::stringstream ss;
     ss << "digraph {" << std::endl;
     ss << root_.to_gv();
@@ -529,8 +532,8 @@ namespace symreg
    * @param upper the highest possible integer which may be returned
    * @return a random integer on [lower, upper]
    */
-  template <class MAB, class ValFn>
-  int MCTS<MAB, ValFn>::get_random(int lower, int upper) {
+  template <class MAB, class ScoreFn>
+  int MCTS<MAB, ScoreFn>::get_random(int lower, int upper) {
     std::uniform_int_distribution<std::mt19937::result_type> dist(lower, upper);
     return dist(rng_); 
   }
@@ -540,9 +543,9 @@ namespace symreg
    *
    * @return a non-const reference to the MCTS class' symbol table
    */
-  template <class MAB, class ValFn>
-  std::unordered_map<std::string, double>& MCTS<MAB, ValFn>::symbol_table() {
-    return symbol_table_;
+  template <class MAB, class ScoreFn>
+  dataset& MCTS<MAB, ScoreFn>::dataset() {
+    return dataset_;
   }
 
   /**
@@ -551,8 +554,8 @@ namespace symreg
    *
    * @return a shared pointer to an AST
    */
-  template <class MAB, class ValFn>
-  std::shared_ptr<AST> MCTS<MAB, ValFn>::build_result() {
+  template <class MAB, class ScoreFn>
+  std::shared_ptr<AST> MCTS<MAB, ScoreFn>::build_result() {
     return build_ast_upward(curr_);
   }
 
@@ -560,17 +563,20 @@ namespace symreg
    * @brief calls the multi armed bandit function (default UCB1) and returns the result
    * @param Args a parameter pack to be forwarded to UCB1/whatever
    * @return the return type of UCB1/whatever
-   * TODO: does it make sense for this to be variadic?
    */
-  template <class MAB, class ValFn>
-  template <class...Args>
-  auto MCTS<MAB, ValFn>::MAB(Args... args) -> std::result_of_t<MultiArmedBandit(Args...)> {
-    return mab_fn_(std::forward<Args>(args)...);  
+  template <class MAB, class ScoreFn>
+  double MCTS<MAB, ScoreFn>::multi_armed_bandit(double child_val, int child_n, int parent_n) {
+    return mab_fn_(child_val, child_n, parent_n);   
   }
-  
-  template <class MAB, class ValFn>
-  double MCTS<MAB, ValFn>::value(std::shared_ptr<AST>& ast) {
-    return val_fn_(dataset_, ast);
+
+  /**
+   * @brief calls the score function (default mean squared error) and returns the result
+   * @param ast the ast to be used for scoring
+   * @return the score
+   */
+  template <class MAB, class ScoreFn>
+  double MCTS<MAB, ScoreFn>::score(std::shared_ptr<AST>& ast) {
+    return score_fn_(dataset_, ast);
   }
 }
 

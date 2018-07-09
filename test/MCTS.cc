@@ -4,10 +4,11 @@
 #include "gtest/gtest.h"
 
 TEST(Stuff, WhoCares) {
-  symreg::MCTS mcts{};
-  mcts.symbol_table().insert({"x", -8});
-  mcts.symbol_table().insert({"y", 10});
-  mcts.symbol_table().insert({"z", 5});
+  symreg::MCTS mcts{1};
+
+  mcts.dataset().x = {{1}, {2}, {3}};
+  mcts.dataset().y = {4, 5, 6}; 
+
   mcts.iterate(7);
   std::cout << mcts.to_gv() << std::endl;
   std::cout << mcts.build_result()->to_string() << std::endl;
