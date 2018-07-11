@@ -1,6 +1,7 @@
 #ifndef SYMREG_MCTS_MCTS_HPP_
 #define SYMREG_MCTS_MCTS_HPP_
 
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -12,6 +13,8 @@
 #include "brick.hpp"
 #include "dataset.hpp"
 #include "MCTS/search_node.hpp"
+
+#define LOG_LEVEL 1
 
 using AST = brick::AST::AST;
 
@@ -28,8 +31,6 @@ namespace symreg
        sum += std::pow(ast->eval(xi) - ds.y[i], 2); 
     }
     double mse = sum / ds.x.size();
-    std::cout << ast->to_string() << std::endl;
-    std::cout << "Loss: " << mse << std::endl;
     return -mse;
   }; 
 
@@ -47,6 +48,8 @@ namespace symreg
       std::mt19937 rng_;
       dataset dataset_; 
       int num_dim_;
+      const std::string log_file_;
+      std::ofstream log_stream_;
       // PRIMARY FUNCTIONALITIES
       double rollout(search_node*);
       bool add_actions(search_node*);
@@ -63,6 +66,7 @@ namespace symreg
       std::shared_ptr<brick::AST::AST> build_ast_upward(search_node*);
       std::vector<std::unique_ptr<brick::AST::node>> get_action_set(int);
       search_node* max_score_child(search_node*);
+      void write_game_state(int) const;
       // TEMPLATE CONFIGURABLE
       double multi_armed_bandit(double, int, int);
       double score(std::shared_ptr<brick::AST::AST>&);
@@ -88,7 +92,9 @@ namespace symreg
       curr_(&root_),
       mab_fn_(mab),
       score_fn_(score_fn),
-      num_dim_(num_dim)
+      num_dim_(num_dim),
+      log_file_("mcts.log"),
+      log_stream_(log_file_)
   { 
     rng_.seed(std::random_device()()); 
     add_actions(curr_);
@@ -135,9 +141,12 @@ namespace symreg
   template <class MAB, class ScoreFn>
   void MCTS<MAB, ScoreFn>::iterate(std::size_t n) {
     for (std::size_t i = 0; i < n; i++) {
-      std::cout << "Iteration: " << i << std::endl;
       simulate();
       bool did_move = make_move();
+      #if LOG_LEVEL > 0
+      log_stream_ << "Iteration: " << i << std::endl;
+      write_game_state(i);
+      #endif
       if (!did_move) {
         break;
       }
@@ -347,7 +356,9 @@ namespace symreg
     if (max_action_arity >= 1) {
     }
     // terminals
-    actions.push_back(std::make_unique<brick::AST::number_node>(3));
+    for (int a = 0; a < 10; a++) {
+      actions.push_back(std::make_unique<brick::AST::number_node>(a));
+    }
 
     for (int i = 0; i < num_dim_; i++) {
       actions.push_back(std::make_unique<brick::AST::id_node>("_x" + std::to_string(i)));
@@ -462,6 +473,12 @@ namespace symreg
     } 
   }
 
+  template <class MAB, class ScoreFn>
+  void MCTS<MAB, ScoreFn>::write_game_state(int iteration) const {
+    std::ofstream out_file(std::to_string(iteration) + ".gv");
+    out_file << to_gv() << std::endl;
+  }
+
   /**
    * @brief performs a random rollout starting from a search node in the MCTS
    *
@@ -505,7 +522,12 @@ namespace symreg
         targets.pop();
       }
     }
-    return score(ast);
+    double score_ = score(ast);
+    #if LOG_LEVEL > 0
+    log_stream_ << ast->to_string() << std::endl;
+    log_stream_ << "Score: " << score_ << std::endl;
+    #endif
+    return score_;
   }
 
   /**
