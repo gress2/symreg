@@ -74,7 +74,7 @@ namespace symreg
       MCTS(int, const MAB& = UCB1, const ScoreFn& = MSE);
       void iterate(std::size_t);
       std::string to_gv() const;
-      dataset& dataset();
+      dataset& get_dataset();
       std::shared_ptr<brick::AST::AST> build_result();
   };
 
@@ -566,7 +566,7 @@ namespace symreg
    * @return a non-const reference to the MCTS class' symbol table
    */
   template <class MAB, class ScoreFn>
-  dataset& MCTS<MAB, ScoreFn>::dataset() {
+  dataset& MCTS<MAB, ScoreFn>::get_dataset() {
     return dataset_;
   }
 

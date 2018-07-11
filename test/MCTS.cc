@@ -6,8 +6,8 @@
 TEST(Stuff, WhoCares) {
   symreg::MCTS mcts{1};
 
-  mcts.dataset().x = {{20}, {44}, {33}};
-  mcts.dataset().y = {400, 1936, 1089}; 
+  mcts.get_dataset().x = {{20}, {44}, {33}};
+  mcts.get_dataset().y = {400, 1936, 1089}; 
 
   mcts.iterate(7);
   std::cout << mcts.to_gv() << std::endl;
