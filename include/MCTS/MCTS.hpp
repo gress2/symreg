@@ -1,6 +1,7 @@
 #ifndef SYMREG_MCTS_MCTS_HPP_
 #define SYMREG_MCTS_MCTS_HPP_
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -31,23 +32,30 @@ namespace symreg
        sum += std::pow(ast->eval(xi) - ds.y[i], 2); 
     }
     double mse = sum / ds.x.size();
-    return -mse;
+    return mse;
   }; 
 
-  template <class MAB = decltype(UCB1), class ScoreFn = decltype(MSE)>
+  auto NRMSD = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
+    double RMSD = sqrt(MSE(ds, ast));
+    double min = *std::min_element(ds.y.begin(), ds.y.end());
+    double max = *std::max_element(ds.y.begin(), ds.y.end());
+    return RMSD / (max - min);
+  };
+
+  template <class MAB = decltype(UCB1), class LossFn = decltype(NRMSD)>
   class MCTS {
     private:
       // STATIC MEMBERS
       static const int depth_limit_ = 7;
-      static const int num_simulations_ = 20;
+      static const int num_simulations_ = 20000;
       // MEMBERS
+      dataset dataset_; 
+      int num_dim_;
       search_node root_;
       search_node* curr_;
       MAB mab_fn_;
-      ScoreFn score_fn_;
+      LossFn loss_fn_;
       std::mt19937 rng_;
-      dataset dataset_; 
-      int num_dim_;
       const std::string log_file_;
       std::ofstream log_stream_;
       // PRIMARY FUNCTIONALITIES
@@ -56,7 +64,8 @@ namespace symreg
       void backprop(double, search_node*);
       void simulate();
       bool make_move();
-      search_node* choose_leaf();
+      search_node* choose_leaf_by_score();
+      search_node* choose_leaf_randomly();
       // HELPERS
       std::vector<search_node*> get_up_link_targets(search_node*);
       search_node* get_earliest_up_link_target(search_node*);
@@ -66,12 +75,13 @@ namespace symreg
       std::shared_ptr<brick::AST::AST> build_ast_upward(search_node*);
       std::vector<std::unique_ptr<brick::AST::node>> get_action_set(int);
       search_node* max_score_child(search_node*);
+      search_node* random_child(search_node*);
       void write_game_state(int) const;
       // TEMPLATE CONFIGURABLE
       double multi_armed_bandit(double, int, int);
       double score(std::shared_ptr<brick::AST::AST>&);
     public:
-      MCTS(int, const MAB& = UCB1, const ScoreFn& = MSE);
+      MCTS(dataset, int, const MAB& = UCB1, const LossFn& = NRMSD);
       void iterate(std::size_t);
       std::string to_gv() const;
       dataset& get_dataset();
@@ -86,13 +96,14 @@ namespace symreg
    * The curr_ pointer is initialized to point at this search node.
    * Additionally, the classes random number generator instance is seeded.
    */
-  template <class MAB, class ScoreFn>
-  MCTS<MAB, ScoreFn>::MCTS(int num_dim, const MAB& mab, const ScoreFn& score_fn)
-    : root_(search_node(std::make_unique<brick::AST::posit_node>())),
+  template <class MAB, class LossFn>
+  MCTS<MAB, LossFn>::MCTS(dataset ds, int num_dim, const MAB& mab, const LossFn& loss_fn)
+    : dataset_(ds), 
+      num_dim_(num_dim),
+      root_(search_node(std::make_unique<brick::AST::posit_node>())),
       curr_(&root_),
       mab_fn_(mab),
-      score_fn_(score_fn),
-      num_dim_(num_dim),
+      loss_fn_(loss_fn),
       log_file_("mcts.log"),
       log_stream_(log_file_)
   { 
@@ -113,10 +124,10 @@ namespace symreg
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class MAB, class ScoreFn>
-  void MCTS<MAB, ScoreFn>::simulate() {
+  template <class MAB, class LossFn>
+  void MCTS<MAB, LossFn>::simulate() {
     for (std::size_t i = 0; i < num_simulations_; i++) {
-      search_node* leaf = choose_leaf();
+      search_node* leaf = choose_leaf_randomly();
       if (leaf->visited()) {
         if (add_actions(leaf)) {
           leaf = &(leaf->get_children()[0]);
@@ -138,8 +149,8 @@ namespace symreg
    * 
    * @param n number determining how many time we wish to loop
    */
-  template <class MAB, class ScoreFn>
-  void MCTS<MAB, ScoreFn>::iterate(std::size_t n) {
+  template <class MAB, class LossFn>
+  void MCTS<MAB, LossFn>::iterate(std::size_t n) {
     for (std::size_t i = 0; i < n; i++) {
       simulate();
       bool did_move = make_move();
@@ -164,8 +175,8 @@ namespace symreg
    *
    * @return a boolean telling whether or not a move was made
    */
-  template <class MAB, class ScoreFn>
-  bool MCTS<MAB, ScoreFn>::make_move() {
+  template <class MAB, class LossFn>
+  bool MCTS<MAB, LossFn>::make_move() {
     search_node* next = max_score_child(curr_);
     if (next) {
       curr_ = next;
@@ -185,8 +196,8 @@ namespace symreg
    * @return a pointer to the child of a search node with highest UCB1 value
    * if children exist, a nullptr otherwise.
    */
-  template <class MAB, class ScoreFn>
-  search_node* MCTS<MAB, ScoreFn>::max_score_child(search_node* node) {
+  template <class MAB, class LossFn>
+  search_node* MCTS<MAB, LossFn>::max_score_child(search_node* node) {
     double max = -std::numeric_limits<double>::infinity();
     search_node* max_node = nullptr;
     for (auto& child : node->get_children()) {
@@ -202,6 +213,21 @@ namespace symreg
     return max_node;
   }
 
+
+  /**
+   * @brief returns a pointer to a random child of a passed search node
+   * @param node the node which we wish to pick a child of
+   * @return a pointer to the random child
+   */ 
+  template <class MAB, class LossFn>
+  search_node* MCTS<MAB, LossFn>::random_child(search_node* node) {
+    if (node->get_children().empty()) {
+      return nullptr;
+    }
+    int random = get_random(0, node->get_children().size() - 1);
+    return &(node->get_children()[random]); 
+  }
+
   /**
    * @brief Chooses a leaf node to rollout/expand in the
    * simulation step.
@@ -212,12 +238,39 @@ namespace symreg
    *
    * Design decision: this method
    */
-  template <class MAB, class ScoreFn>
-  search_node* MCTS<MAB, ScoreFn>::choose_leaf() {
+  template <class MAB, class LossFn>
+  search_node* MCTS<MAB, LossFn>::choose_leaf_by_score() {
     search_node* leaf = curr_;
     while (!leaf->is_leaf_node()) {
       leaf = max_score_child(leaf);
     }
+    return leaf;
+  }
+
+
+  /**
+   * @brief Chooses a leaf to rollout/expand randomly
+   *
+   * Starting from the current node of the algorithm,
+   * iterates downward through the tree by choosing children
+   * completely at random
+   *
+   * @return a pointer to the chosen search node
+   */
+  template <class MAB, class LossFn>
+  search_node* MCTS<MAB, LossFn>::choose_leaf_randomly() {
+    search_node* leaf = curr_;
+    while (!leaf->is_leaf_node()) {
+      std::cout << "trapped" << std::endl;
+      search_node* rand = random_child(leaf);
+      /*
+      if (rand->get_n() > 0 && rand->is_leaf_node()) { // don't revisit end of AST nodes
+        continue;
+      }
+      */
+      leaf = rand;
+    }
+    std::cout << "break out" << std::endl;
     return leaf;
   }
 
@@ -234,11 +287,12 @@ namespace symreg
    * @param value the value of the rollout to be propagated upward
    * @param curr a pointer to the leaf node which was rolled out
    */
-  template <class MAB, class ScoreFn>
-  void MCTS<MAB, ScoreFn>::backprop(double value, search_node* curr) {
+  template <class MAB, class LossFn>
+  void MCTS<MAB, LossFn>::backprop(double value, search_node* curr) {
     while (curr) {
-      curr->set_v(curr->get_v() + value);
+      curr->set_v((curr->get_v() * curr->get_n() + value) / (curr->get_n() + 1)); 
       curr->set_n(curr->get_n() + 1);
+      value = curr->get_v();
       curr = curr->parent();
     }
   }
@@ -255,8 +309,8 @@ namespace symreg
    * @param curr A search node for which we wish to find potential parent targets at or above 
    * @return A vector containing potential parent targets for new descendants to link to
    */
-  template <class MAB, class ScoreFn>
-  std::vector<search_node*> MCTS<MAB, ScoreFn>::get_up_link_targets(search_node* curr) {
+  template <class MAB, class LossFn>
+  std::vector<search_node*> MCTS<MAB, LossFn>::get_up_link_targets(search_node* curr) {
     // create a map of nodes and how many descendant nodes point to it (number of children)
     std::map<search_node*, int> targets; 
     search_node* tmp = curr;
@@ -290,8 +344,8 @@ namespace symreg
    * @param curr the node for which we start the parent search
    * @return the earliest parent target in this path of the MCTS tree
    */
-  template <class MAB, class ScoreFn>
-  search_node* MCTS<MAB, ScoreFn>::get_earliest_up_link_target(search_node* curr) {
+  template <class MAB, class LossFn>
+  search_node* MCTS<MAB, LossFn>::get_earliest_up_link_target(search_node* curr) {
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
@@ -308,8 +362,8 @@ namespace symreg
    * @param curr the node from which we start the parent search
    * @return a random parent target in this path of the MCTS tree
    */ 
-  template <class MAB, class ScoreFn>
-  search_node* MCTS<MAB, ScoreFn>::get_random_up_link_target(search_node* curr) {
+  template <class MAB, class LossFn>
+  search_node* MCTS<MAB, LossFn>::get_random_up_link_target(search_node* curr) {
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
@@ -327,8 +381,8 @@ namespace symreg
    * of children the node type may support 
    * @return a unique pointer to a randomly chosen node type
    */
-  template <class MAB, class ScoreFn>
-  std::unique_ptr<brick::AST::node> MCTS<MAB, ScoreFn>::get_random_action(int max_arity) {
+  template <class MAB, class LossFn>
+  std::unique_ptr<brick::AST::node> MCTS<MAB, LossFn>::get_random_action(int max_arity) {
     std::vector<std::unique_ptr<brick::AST::node>> action_set = get_action_set(max_arity);
     int random = get_random(0, action_set.size() - 1);
     return std::move(action_set[random]);
@@ -344,8 +398,8 @@ namespace symreg
    * of children the nodes support
    * @return a vector of unique pointers for all possible node types
    */
-  template <class MAB, class ScoreFn>
-  std::vector<std::unique_ptr<brick::AST::node>> MCTS<MAB, ScoreFn>::get_action_set(int max_action_arity) {
+  template <class MAB, class LossFn>
+  std::vector<std::unique_ptr<brick::AST::node>> MCTS<MAB, LossFn>::get_action_set(int max_action_arity) {
     std::vector<std::unique_ptr<brick::AST::node>> actions;
     // binary operators
     if (max_action_arity >= 2) {
@@ -382,8 +436,8 @@ namespace symreg
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class MAB, class ScoreFn>
-  bool MCTS<MAB, ScoreFn>::add_actions(search_node* curr) {
+  template <class MAB, class LossFn>
+  bool MCTS<MAB, LossFn>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
     std::vector<search_node*> targets = get_up_link_targets(curr);
     if (targets.empty()) {
@@ -428,8 +482,8 @@ namespace symreg
    * @param bottom the MCTS search node to start building the AST from
    * @return a shared pointer to the root of the AST which was built
    */
-  template <class MAB, class ScoreFn>
-  std::shared_ptr<AST> MCTS<MAB, ScoreFn>::build_ast_upward(search_node* bottom) {
+  template <class MAB, class LossFn>
+  std::shared_ptr<AST> MCTS<MAB, LossFn>::build_ast_upward(search_node* bottom) {
     search_node* cur = bottom;
     search_node* root = &root_;
     std::map<search_node*, std::shared_ptr<AST>> search_to_ast;
@@ -473,8 +527,8 @@ namespace symreg
     } 
   }
 
-  template <class MAB, class ScoreFn>
-  void MCTS<MAB, ScoreFn>::write_game_state(int iteration) const {
+  template <class MAB, class LossFn>
+  void MCTS<MAB, LossFn>::write_game_state(int iteration) const {
     std::ofstream out_file(std::to_string(iteration) + ".gv");
     out_file << to_gv() << std::endl;
   }
@@ -495,8 +549,8 @@ namespace symreg
    * @param curr the node to rollout from
    * @return the value of our randomly rolled out AST
    */
-  template <class MAB, class ScoreFn>
-  double MCTS<MAB, ScoreFn>::rollout(search_node* curr) {
+  template <class MAB, class LossFn>
+  double MCTS<MAB, LossFn>::rollout(search_node* curr) {
     search_node* rollout_base = curr;
     std::shared_ptr<AST> ast = build_ast_upward(rollout_base);
 
@@ -536,8 +590,8 @@ namespace symreg
    *
    * @return the graph viz string representation
    */
-  template <class MAB, class ScoreFn>
-  std::string MCTS<MAB, ScoreFn>::to_gv() const {
+  template <class MAB, class LossFn>
+  std::string MCTS<MAB, LossFn>::to_gv() const {
     std::stringstream ss;
     ss << "digraph {" << std::endl;
     ss << root_.to_gv();
@@ -554,8 +608,8 @@ namespace symreg
    * @param upper the highest possible integer which may be returned
    * @return a random integer on [lower, upper]
    */
-  template <class MAB, class ScoreFn>
-  int MCTS<MAB, ScoreFn>::get_random(int lower, int upper) {
+  template <class MAB, class LossFn>
+  int MCTS<MAB, LossFn>::get_random(int lower, int upper) {
     std::uniform_int_distribution<std::mt19937::result_type> dist(lower, upper);
     return dist(rng_); 
   }
@@ -565,8 +619,8 @@ namespace symreg
    *
    * @return a non-const reference to the MCTS class' symbol table
    */
-  template <class MAB, class ScoreFn>
-  dataset& MCTS<MAB, ScoreFn>::get_dataset() {
+  template <class MAB, class LossFn>
+  dataset& MCTS<MAB, LossFn>::get_dataset() {
     return dataset_;
   }
 
@@ -576,8 +630,8 @@ namespace symreg
    *
    * @return a shared pointer to an AST
    */
-  template <class MAB, class ScoreFn>
-  std::shared_ptr<AST> MCTS<MAB, ScoreFn>::build_result() {
+  template <class MAB, class LossFn>
+  std::shared_ptr<AST> MCTS<MAB, LossFn>::build_result() {
     return build_ast_upward(curr_);
   }
 
@@ -586,19 +640,19 @@ namespace symreg
    * @param Args a parameter pack to be forwarded to UCB1/whatever
    * @return the return type of UCB1/whatever
    */
-  template <class MAB, class ScoreFn>
-  double MCTS<MAB, ScoreFn>::multi_armed_bandit(double child_val, int child_n, int parent_n) {
+  template <class MAB, class LossFn>
+  double MCTS<MAB, LossFn>::multi_armed_bandit(double child_val, int child_n, int parent_n) {
     return mab_fn_(child_val, child_n, parent_n);   
   }
 
   /**
-   * @brief calls the score function (default mean squared error) and returns the result
+   * @brief calls the loss function and returns the negative of it 
    * @param ast the ast to be used for scoring
    * @return the score
    */
-  template <class MAB, class ScoreFn>
-  double MCTS<MAB, ScoreFn>::score(std::shared_ptr<AST>& ast) {
-    return score_fn_(dataset_, ast);
+  template <class MAB, class LossFn>
+  double MCTS<MAB, LossFn>::score(std::shared_ptr<AST>& ast) {
+    return -loss_fn_(dataset_, ast);
   }
 }
 
