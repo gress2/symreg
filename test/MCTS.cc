@@ -11,13 +11,13 @@ TEST(Stuff, WhoCares) {
     200
   );
 
-  symreg::MCTS mcts{ds, 1, symreg::UCB1, symreg::MSE};
-  mcts.iterate(8);
+  symreg::MCTS mcts{ds, 1, symreg::UCB1, symreg::NRMSD};
+  mcts.iterate(4);
 
   auto res = mcts.build_result();
 
   std::cout << res->to_string() << std::endl;
-  std::cout << symreg::MSE(ds, res) << std::endl;
+  std::cout << symreg::NRMSD(ds, res) << std::endl;
   
   ASSERT_TRUE(true);
 }

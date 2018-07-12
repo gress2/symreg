@@ -22,6 +22,7 @@ namespace symreg
       search_node* parent_;
       search_node* up_link_;
       std::vector<search_node> children_ = {};
+      bool is_dead_end_;
     public:
       search_node(std::unique_ptr<brick::AST::node>&&);
       search_node(search_node&&);
@@ -45,6 +46,8 @@ namespace symreg
       search_node* up_link();
       std::unique_ptr<brick::AST::node>& ast_node();
       bool visited() const;
+      void set_dead_end();
+      bool is_dead_end() const;
   };
   
   /**
@@ -63,7 +66,8 @@ namespace symreg
         unconnected_(1),
         ast_node_(std::move(ast_node)), 
         parent_(nullptr), 
-        up_link_(nullptr)
+        up_link_(nullptr),
+        is_dead_end_(false)
     {}
 
     /**
@@ -81,7 +85,8 @@ namespace symreg
         ast_node_(std::move(other.ast_node_)),
         parent_(other.parent_),
         up_link_(other.up_link_),
-        children_(std::move(other.children_))
+        children_(std::move(other.children_)),
+        is_dead_end_(other.is_dead_end_)
     {}
 
     /**
@@ -118,7 +123,7 @@ namespace symreg
       ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() 
         << "\nn: " << n_ << ", " << "\nv: " << v_ << "\", " << "shape=" << shape << "]" << std::endl;
       if (up_link_) {
-        ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << " [arrowhead=crow]" << std::endl;
+        ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << " [arrowhead=crow,color=blue]" << std::endl;
       }
       for (const search_node& child : children_) {
         ss << "  " << node_id << " -> " << child.ast_node_->get_node_id() << std::endl;
@@ -277,6 +282,14 @@ namespace symreg
      */
     bool search_node::visited() const {
       return n_ > 0;
+    }
+
+    void search_node::set_dead_end() {
+      is_dead_end_ = true;
+    }
+
+    bool search_node::is_dead_end() const {
+      return is_dead_end_;
     }
 }
 

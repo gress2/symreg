@@ -46,8 +46,8 @@ namespace symreg
   class MCTS {
     private:
       // STATIC MEMBERS
-      static const int depth_limit_ = 8;
-      static const int num_simulations_ = 200;
+      static const int depth_limit_ = 4;
+      static const int num_simulations_ = 10000;
       // MEMBERS
       dataset dataset_; 
       int num_dim_;
@@ -77,6 +77,7 @@ namespace symreg
       search_node* max_score_child(search_node*);
       search_node* random_child(search_node*);
       void write_game_state(int) const;
+      bool game_over();
       // TEMPLATE CONFIGURABLE
       double multi_armed_bandit(double, int, int);
       double score(std::shared_ptr<brick::AST::AST>&);
@@ -128,13 +129,16 @@ namespace symreg
   void MCTS<MAB, LossFn>::simulate() {
     for (std::size_t i = 0; i < num_simulations_; i++) {
       search_node* leaf = choose_leaf_randomly();
-      if (!leaf) { // no more leaves left to explore
-        return;
+      if (!leaf) {
+        continue;
       }
       if (leaf->visited()) {
         if (add_actions(leaf)) {
           leaf = &(leaf->get_children()[0]);
-        }      
+        } else {
+          leaf->set_dead_end();
+          continue;
+        } 
       }
       double value = rollout(leaf);
       backprop(value, leaf);
@@ -155,6 +159,9 @@ namespace symreg
   template <class MAB, class LossFn>
   void MCTS<MAB, LossFn>::iterate(std::size_t n) {
     for (std::size_t i = 0; i < n; i++) {
+      if (game_over()) {
+        break;
+      }
       simulate();
       bool did_move = make_move();
       #if LOG_LEVEL > 0
@@ -230,12 +237,9 @@ namespace symreg
 
     std::vector<search_node*> avail;
     for (auto& child : node->get_children()) {
-      // skip nodes that have been visited and not expanded
-      // no point in revisiting them
-      if (child.get_n() > 0 && child.is_leaf_node()) {
-        continue;
+      if (!child.is_dead_end()) {
+        avail.push_back(&child);
       }
-      avail.push_back(&child);
     }
 
     if (avail.empty()) {
@@ -277,11 +281,18 @@ namespace symreg
    */
   template <class MAB, class LossFn>
   search_node* MCTS<MAB, LossFn>::choose_leaf_randomly() {
-    search_node* leaf = curr_;
-    while (leaf && !leaf->is_leaf_node()) {
-      leaf = random_child(leaf);
+    search_node* node = curr_;
+
+    while (!node->is_leaf_node()) {
+      auto child = random_child(node);
+      if (child) {
+        node = child;
+      } else {
+        return nullptr;
+      }
     }
-    return leaf;
+
+    return node;
   }
 
   /**
@@ -420,7 +431,7 @@ namespace symreg
     if (max_action_arity >= 1) {
     }
     // terminals
-    for (int a = 0; a < 10; a++) {
+    for (int a = 1; a < 3; a++) {
       actions.push_back(std::make_unique<brick::AST::number_node>(a));
     }
 
@@ -541,6 +552,11 @@ namespace symreg
   void MCTS<MAB, LossFn>::write_game_state(int iteration) const {
     std::ofstream out_file(std::to_string(iteration) + ".gv");
     out_file << to_gv() << std::endl;
+  }
+
+  template <class MAB, class LossFn>
+  bool MCTS<MAB, LossFn>::game_over() {
+    return curr_->is_dead_end();
   }
 
   /**
