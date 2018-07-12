@@ -11,14 +11,13 @@ TEST(Stuff, WhoCares) {
     200
   );
 
-  std::cout << ds.x.size() << std::endl;
+  symreg::MCTS mcts{ds, 1, symreg::UCB1, symreg::MSE};
+  mcts.iterate(8);
 
-  symreg::MCTS mcts{ds, 1};
-  mcts.iterate(7);
+  auto res = mcts.build_result();
 
-  std::cout << mcts.to_gv() << std::endl;
-  std::cout << mcts.build_result()->to_string() << std::endl;
-  std::cout << mcts.build_result()->to_gv() << std::endl;
+  std::cout << res->to_string() << std::endl;
+  std::cout << symreg::MSE(ds, res) << std::endl;
   
   ASSERT_TRUE(true);
 }

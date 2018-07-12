@@ -46,8 +46,8 @@ namespace symreg
   class MCTS {
     private:
       // STATIC MEMBERS
-      static const int depth_limit_ = 7;
-      static const int num_simulations_ = 20000;
+      static const int depth_limit_ = 8;
+      static const int num_simulations_ = 200;
       // MEMBERS
       dataset dataset_; 
       int num_dim_;
@@ -128,6 +128,9 @@ namespace symreg
   void MCTS<MAB, LossFn>::simulate() {
     for (std::size_t i = 0; i < num_simulations_; i++) {
       search_node* leaf = choose_leaf_randomly();
+      if (!leaf) { // no more leaves left to explore
+        return;
+      }
       if (leaf->visited()) {
         if (add_actions(leaf)) {
           leaf = &(leaf->get_children()[0]);
@@ -224,8 +227,23 @@ namespace symreg
     if (node->get_children().empty()) {
       return nullptr;
     }
-    int random = get_random(0, node->get_children().size() - 1);
-    return &(node->get_children()[random]); 
+
+    std::vector<search_node*> avail;
+    for (auto& child : node->get_children()) {
+      // skip nodes that have been visited and not expanded
+      // no point in revisiting them
+      if (child.get_n() > 0 && child.is_leaf_node()) {
+        continue;
+      }
+      avail.push_back(&child);
+    }
+
+    if (avail.empty()) {
+      return nullptr;
+    }
+
+    int random = get_random(0, avail.size() - 1);
+    return avail[random]; 
   }
 
   /**
@@ -260,17 +278,9 @@ namespace symreg
   template <class MAB, class LossFn>
   search_node* MCTS<MAB, LossFn>::choose_leaf_randomly() {
     search_node* leaf = curr_;
-    while (!leaf->is_leaf_node()) {
-      std::cout << "trapped" << std::endl;
-      search_node* rand = random_child(leaf);
-      /*
-      if (rand->get_n() > 0 && rand->is_leaf_node()) { // don't revisit end of AST nodes
-        continue;
-      }
-      */
-      leaf = rand;
+    while (leaf && !leaf->is_leaf_node()) {
+      leaf = random_child(leaf);
     }
-    std::cout << "break out" << std::endl;
     return leaf;
   }
 

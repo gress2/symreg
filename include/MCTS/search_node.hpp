@@ -116,7 +116,7 @@ namespace symreg
       auto node_id = ast_node_->get_node_id();
       auto shape = ast_node_->is_terminal() ? "doublecircle" : "circle";
       ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() 
-        << "\", " << "shape=" << shape << "]" << std::endl;
+        << "\nn: " << n_ << ", " << "\nv: " << v_ << "\", " << "shape=" << shape << "]" << std::endl;
       if (up_link_) {
         ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << " [arrowhead=crow]" << std::endl;
       }
