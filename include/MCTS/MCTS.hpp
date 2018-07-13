@@ -22,7 +22,11 @@ using AST = brick::AST::AST;
 namespace symreg 
 {
   auto UCB1 = [](double child_val, int child_n, int parent_n) { 
-    return child_val / child_n + sqrt(2 * log(parent_n) / child_n); 
+    return child_val + sqrt(2 * log(parent_n) / child_n); 
+  };
+
+  auto simple_value = [](double child_val, int child_n, int parent_n) {
+    return child_val;
   };
 
   auto MSE = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
@@ -45,12 +49,11 @@ namespace symreg
   template <class MAB = decltype(UCB1), class LossFn = decltype(NRMSD)>
   class MCTS {
     private:
-      // STATIC MEMBERS
-      static const int depth_limit_ = 4;
-      static const int num_simulations_ = 10000;
       // MEMBERS
+      const int depth_limit_;
+      const int num_dim_;
+      const int num_simulations_;
       dataset dataset_; 
-      int num_dim_;
       search_node root_;
       search_node* curr_;
       MAB mab_fn_;
@@ -82,8 +85,8 @@ namespace symreg
       double multi_armed_bandit(double, int, int);
       double score(std::shared_ptr<brick::AST::AST>&);
     public:
-      MCTS(dataset, int, const MAB& = UCB1, const LossFn& = NRMSD);
-      void iterate(std::size_t);
+      MCTS(int, int, int, dataset, const MAB& = UCB1, const LossFn& = NRMSD);
+      void iterate();
       std::string to_gv() const;
       dataset& get_dataset();
       std::shared_ptr<brick::AST::AST> build_result();
@@ -98,9 +101,18 @@ namespace symreg
    * Additionally, the classes random number generator instance is seeded.
    */
   template <class MAB, class LossFn>
-  MCTS<MAB, LossFn>::MCTS(dataset ds, int num_dim, const MAB& mab, const LossFn& loss_fn)
-    : dataset_(ds), 
+  MCTS<MAB, LossFn>::MCTS(
+      int depth_limit,
+      int num_dim, 
+      int num_simulations,
+      dataset ds, 
+      const MAB& mab, 
+      const LossFn& loss_fn
+  )
+    : depth_limit_(depth_limit),
       num_dim_(num_dim),
+      num_simulations_(num_simulations),
+      dataset_(ds), 
       root_(search_node(std::make_unique<brick::AST::posit_node>())),
       curr_(&root_),
       mab_fn_(mab),
@@ -109,6 +121,7 @@ namespace symreg
       log_stream_(log_file_)
   { 
     rng_.seed(std::random_device()()); 
+    root_.set_scorer(mab_fn_);
     add_actions(curr_);
   }
 
@@ -127,17 +140,19 @@ namespace symreg
    */
   template <class MAB, class LossFn>
   void MCTS<MAB, LossFn>::simulate() {
-    for (std::size_t i = 0; i < num_simulations_; i++) {
+    for (int i = 0; i < num_simulations_; i++) {
       search_node* leaf = choose_leaf_randomly();
       if (!leaf) {
         continue;
       }
+
       if (leaf->visited()) {
-        if (add_actions(leaf)) {
+        if (leaf->is_dead_end()) {
+          // TODO
+        } else if (add_actions(leaf)) {
           leaf = &(leaf->get_children()[0]);
         } else {
           leaf->set_dead_end();
-          continue;
         } 
       }
       double value = rollout(leaf);
@@ -157,8 +172,8 @@ namespace symreg
    * @param n number determining how many time we wish to loop
    */
   template <class MAB, class LossFn>
-  void MCTS<MAB, LossFn>::iterate(std::size_t n) {
-    for (std::size_t i = 0; i < n; i++) {
+  void MCTS<MAB, LossFn>::iterate() {
+    for (std::size_t i = 0; i < num_simulations_; i++) {
       if (game_over()) {
         break;
       }
@@ -223,7 +238,6 @@ namespace symreg
     return max_node;
   }
 
-
   /**
    * @brief returns a pointer to a random child of a passed search node
    * @param node the node which we wish to pick a child of
@@ -231,23 +245,14 @@ namespace symreg
    */ 
   template <class MAB, class LossFn>
   search_node* MCTS<MAB, LossFn>::random_child(search_node* node) {
-    if (node->get_children().empty()) {
+    auto& children = node->get_children();
+
+    if (children.empty()) {
       return nullptr;
     }
 
-    std::vector<search_node*> avail;
-    for (auto& child : node->get_children()) {
-      if (!child.is_dead_end()) {
-        avail.push_back(&child);
-      }
-    }
-
-    if (avail.empty()) {
-      return nullptr;
-    }
-
-    int random = get_random(0, avail.size() - 1);
-    return avail[random]; 
+    int random = get_random(0, children.size() - 1);
+    return &children[random]; 
   }
 
   /**
@@ -486,6 +491,10 @@ namespace symreg
         child->set_unconnected(
             curr->get_unconnected() - 1 + child->ast_node()->num_children()
         );
+
+        // TODO get rid of this in production mode
+        child->set_scorer(mab_fn_);
+        
         // we must erase these from the vector after they are moved otherwise
         // the memory gets freed when the vector goes out of scope. TODO: can we avoid this?
         it = actions.erase(it);
@@ -548,12 +557,21 @@ namespace symreg
     } 
   }
 
+
+  /**
+   * @brief writes the MCTS tree as a gv to file
+   * @param iteration an integer which determines the name of the gv file
+   */
   template <class MAB, class LossFn>
   void MCTS<MAB, LossFn>::write_game_state(int iteration) const {
     std::ofstream out_file(std::to_string(iteration) + ".gv");
     out_file << to_gv() << std::endl;
   }
 
+  /**
+   * @brief a check to determine whether or not more simulation is possible
+   * given the current move
+   */
   template <class MAB, class LossFn>
   bool MCTS<MAB, LossFn>::game_over() {
     return curr_->is_dead_end();

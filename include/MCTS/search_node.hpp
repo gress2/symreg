@@ -7,8 +7,8 @@
 #include <cmath>
 #include <limits>
 
-
 #include "brick.hpp"
+#include "MCTS/MCTS.hpp"
 
 namespace symreg
 {
@@ -23,6 +23,7 @@ namespace symreg
       search_node* up_link_;
       std::vector<search_node> children_ = {};
       bool is_dead_end_;
+      std::function<double(double, int, int)> scorer_;
     public:
       search_node(std::unique_ptr<brick::AST::node>&&);
       search_node(search_node&&);
@@ -48,6 +49,7 @@ namespace symreg
       bool visited() const;
       void set_dead_end();
       bool is_dead_end() const;
+      void set_scorer(std::function<double(double, int, int)>);
   };
   
   /**
@@ -86,7 +88,8 @@ namespace symreg
         parent_(other.parent_),
         up_link_(other.up_link_),
         children_(std::move(other.children_)),
-        is_dead_end_(other.is_dead_end_)
+        is_dead_end_(other.is_dead_end_),
+        scorer_(other.scorer_)
     {}
 
     /**
@@ -120,7 +123,9 @@ namespace symreg
       std::stringstream ss;
       auto node_id = ast_node_->get_node_id();
       auto shape = ast_node_->is_terminal() ? "doublecircle" : "circle";
+      auto parent_n = parent_ ? parent_->n_ : 0;
       ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() 
+        << "\n UCB1: " << scorer_(v_, n_, parent_n) // TODO get rid of this in production mode
         << "\nn: " << n_ << ", " << "\nv: " << v_ << "\", " << "shape=" << shape << "]" << std::endl;
       if (up_link_) {
         ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << " [arrowhead=crow,color=blue]" << std::endl;
@@ -290,6 +295,11 @@ namespace symreg
 
     bool search_node::is_dead_end() const {
       return is_dead_end_;
+    }
+
+
+    void search_node::set_scorer(std::function<double(double, int, int)> scorer) {
+      scorer_ = scorer;
     }
 }
 
