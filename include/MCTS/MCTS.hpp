@@ -25,10 +25,6 @@ namespace symreg
     return child_val + sqrt(2 * log(parent_n) / child_n); 
   };
 
-  auto simple_value = [](double child_val, int child_n, int parent_n) {
-    return child_val;
-  };
-
   auto MSE = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
     double sum = 0;
     for (std::size_t i = 0; i < ds.x.size(); i++) {
@@ -146,7 +142,7 @@ namespace symreg
         continue;
       }
 
-      if (leaf->visited()) {
+      if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
           // TODO
         } else if (add_actions(leaf)) {
@@ -319,7 +315,7 @@ namespace symreg
       curr->set_v((curr->get_v() * curr->get_n() + value) / (curr->get_n() + 1)); 
       curr->set_n(curr->get_n() + 1);
       value = curr->get_v();
-      curr = curr->parent();
+      curr = curr->get_parent();
     }
   }
 
@@ -346,15 +342,15 @@ namespace symreg
           targets[tmp] = 0;
         }
       }
-      if (tmp->up_link()) {
-        targets[tmp->up_link()] += 1;
+      if (tmp->get_up_link()) {
+        targets[tmp->get_up_link()] += 1;
       }
-      tmp = tmp->parent();
+      tmp = tmp->get_parent();
     }
     // create a vector of nodes with less children than they should have
     std::vector<search_node*> avail_targets;
     for (auto r_it = targets.rbegin(); r_it != targets.rend(); ++r_it) {
-      if (r_it->second < r_it->first->ast_node()->num_children()) {
+      if (r_it->second < r_it->first->get_ast_node()->num_children()) {
         avail_targets.push_back(r_it->first);
       }
     }
@@ -489,7 +485,7 @@ namespace symreg
         child->set_up_link(targ);
         child->set_depth(curr->get_depth() + 1);
         child->set_unconnected(
-            curr->get_unconnected() - 1 + child->ast_node()->num_children()
+            curr->get_unconnected() - 1 + child->get_ast_node()->num_children()
         );
 
         // TODO get rid of this in production mode
@@ -520,17 +516,17 @@ namespace symreg
 
     while (cur != root) {
       search_to_ast[cur] = std::make_shared<AST>
-        (std::unique_ptr<brick::AST::node>(cur->ast_node()->clone()));
-      cur = cur->parent();
+        (std::unique_ptr<brick::AST::node>(cur->get_ast_node()->clone()));
+      cur = cur->get_parent();
     }
 
     search_to_ast[root] = std::make_shared<AST>
-      (std::unique_ptr<brick::AST::node>(root->ast_node()->clone()));
+      (std::unique_ptr<brick::AST::node>(root->get_ast_node()->clone()));
     cur = bottom;
 
     while (cur != root) {
-      search_to_ast[cur->up_link()]->add_child(search_to_ast[cur]);
-      cur = cur->parent();
+      search_to_ast[cur->get_up_link()]->add_child(search_to_ast[cur]);
+      cur = cur->get_parent();
     }
     return search_to_ast[root];
   }

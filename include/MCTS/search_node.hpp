@@ -1,11 +1,12 @@
 #ifndef SYMREG_MCTS_TREE_SEARCH_NODE_HPP_
 #define SYMREG_MCTS_TREE_SEARCH_NODE_HPP_
 
+#include <cmath>
+#include <functional>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
-#include <cmath>
-#include <limits>
 
 #include "brick.hpp"
 #include "MCTS/MCTS.hpp"
@@ -14,6 +15,7 @@ namespace symreg
 {
   class search_node {
     private:
+      // MEMBERS
       int n_;
       double v_;
       int depth_;
@@ -25,31 +27,34 @@ namespace symreg
       bool is_dead_end_;
       std::function<double(double, int, int)> scorer_;
     public:
+      // LIFECYCLE
       search_node(std::unique_ptr<brick::AST::node>&&);
       search_node(search_node&&);
+      // MODIFERS
       void set_parent(search_node*);
       void set_up_link(search_node*);
-      std::string to_gv() const;
       search_node* add_child(std::unique_ptr<brick::AST::node>&&);
       search_node* add_child(search_node&&);
+      void set_scorer(std::function<double(double, int, int)>);
+      void set_n(int);
+      void set_v(double);
+      void set_depth(int);
+      void set_unconnected(int);
+      void set_dead_end();
+      // ACCESSORS
+      std::string to_gv() const;
       std::vector<search_node>& get_children();
       bool is_leaf_node() const;
       int get_n() const;
-      void set_n(int);
       double get_v() const;
-      void set_v(double);
       int get_depth() const;
-      void set_depth(int);
       int get_unconnected() const;
-      void set_unconnected(int);
-      search_node* parent();
+      search_node* get_parent();
       bool is_terminal() const;
-      search_node* up_link();
-      std::unique_ptr<brick::AST::node>& ast_node();
-      bool visited() const;
-      void set_dead_end();
+      search_node* get_up_link();
+      std::unique_ptr<brick::AST::node>& get_ast_node();
+      bool is_visited() const;
       bool is_dead_end() const;
-      void set_scorer(std::function<double(double, int, int)>);
   };
   
   /**
@@ -248,7 +253,7 @@ namespace symreg
      * @return a pointer to the search node which this node is a child of in
      * the tree search tree
      */
-    search_node* search_node::parent() {
+    search_node* search_node::get_parent() {
       return parent_;
     }
 
@@ -269,7 +274,7 @@ namespace symreg
      * 
      * @return the pointer which this node is a child of in the AST sense 
      */
-    search_node* search_node::up_link() {
+    search_node* search_node::get_up_link() {
       return up_link_;
     }
 
@@ -277,7 +282,7 @@ namespace symreg
      * @brief a getter for the search node's contained ast node
      * @return a reference to the unique pointer for the contained ast node
      */
-    std::unique_ptr<brick::AST::node>& search_node::ast_node() {
+    std::unique_ptr<brick::AST::node>& search_node::get_ast_node() {
       return ast_node_;
     } 
 
@@ -285,7 +290,7 @@ namespace symreg
      * @brief tells whether or not this node has been rolled out from
      * @return true if the node has been rolled out from, false if not
      */
-    bool search_node::visited() const {
+    bool search_node::is_visited() const {
       return n_ > 0;
     }
 
