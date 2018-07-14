@@ -114,6 +114,70 @@ namespace symreg
     }
 
     /**
+     * @brief given an r-value reference to an AST node unique pointer, 
+     * construct and add a child node to a search node
+     * @param child_content an r-value reference to a unique pointer for an AST node
+     * @return a pointer to the child which was just added
+     */
+    search_node* search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
+      children_.push_back(search_node(std::move(child_content)));
+      return &(children_.back());
+    }
+
+    /**
+     * @brief add a child to a search node given an r-value reference to a search node
+     * @param child an r-value reference to a search node
+     * @return a pointer to the child which was just added
+     */
+    search_node* search_node::add_child(search_node&& child) {
+      children_.push_back(std::move(child));
+      return &(children_.back());
+    }
+
+    void search_node::set_scorer(std::function<double(double, int, int)> scorer) {
+      scorer_ = scorer;
+    }
+
+    /**
+     * @brief a setter for n (the number of times a node has been "visited")
+     * @param val the value which we wish to set this nodes visit count to
+     */
+    void search_node::set_n(int val) {
+      n_ = val;
+    }
+
+    /**
+     * @brief a setter for v (a node's value)
+     * @param val the value which we wish to sit this nodes value to
+     */
+    void search_node::set_v(double val) {
+      v_ = val;
+    }
+
+    /**
+     * @brief a setter for the AST depth of this search node
+     * @param val the value with which to use to set depth_
+     */
+    void search_node::set_depth(int val) {
+      depth_ = val;
+    }
+ 
+    /**
+     * @brief a setter for the number of missing children in the implicit AST
+     * @param val the value with which to use to set unconnected_
+     */
+    void search_node::set_unconnected(int val) {
+      unconnected_ = val;
+    }   
+    
+    /**
+     * @brief a setter for the flag denoting this node may not be expanded further
+     */
+    void search_node::set_dead_end() {
+      is_dead_end_ = true;
+    }
+
+    /**
      * @brief creates a graph viz string representation for a search node and
      * its children recursively
      *
@@ -143,26 +207,6 @@ namespace symreg
       return ss.str();
     }
 
-    /**
-     * @brief given an r-value reference to an AST node unique pointer, 
-     * construct and add a child node to a search node
-     * @param child_content an r-value reference to a unique pointer for an AST node
-     * @return a pointer to the child which was just added
-     */
-    search_node* search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
-      children_.push_back(search_node(std::move(child_content)));
-      return &(children_.back());
-    }
-
-    /**
-     * @brief add a child to a search node given an r-value reference to a search node
-     * @param child an r-value reference to a search node
-     * @return a pointer to the child which was just added
-     */
-    search_node* search_node::add_child(search_node&& child) {
-      children_.push_back(std::move(child));
-      return &(children_.back());
-    }
 
     /**
      * @brief a simple getter for accessing the search node's children
@@ -188,13 +232,6 @@ namespace symreg
       return n_;
     }
 
-    /**
-     * @brief a setter for n (the number of times a node has been "visited")
-     * @param val the value which we wish to set this nodes visit count to
-     */
-    void search_node::set_n(int val) {
-      n_ = val;
-    }
 
     /**
      * @brief a getter for v (a node's value)
@@ -204,13 +241,6 @@ namespace symreg
       return v_;
     }
 
-    /**
-     * @brief a setter for v (a node's value)
-     * @param val the value which we wish to sit this nodes value to
-     */
-    void search_node::set_v(double val) {
-      v_ = val;
-    }
 
     /**
      * @brief a getter for the AST depth of this search node
@@ -220,13 +250,6 @@ namespace symreg
       return depth_;
     }
 
-    /**
-     * @brief a setter for the AST depth of this search node
-     * @param val the value with which to use to set depth_
-     */
-    void search_node::set_depth(int val) {
-      depth_ = val;
-    }
 
     /**
      * @brief a getter for the number of missing children in the implicit AST
@@ -234,14 +257,6 @@ namespace symreg
      */
     int search_node::get_unconnected() const {
       return unconnected_;
-    }
-
-    /**
-     * @brief a setter for the number of missing children in the implicit AST
-     * @param val the value with which to use to set unconnected_
-     */
-    void search_node::set_unconnected(int val) {
-      unconnected_ = val;
     }
 
     /**
@@ -294,18 +309,14 @@ namespace symreg
       return n_ > 0;
     }
 
-    void search_node::set_dead_end() {
-      is_dead_end_ = true;
-    }
-
-    bool search_node::is_dead_end() const {
+    /**
+     * @brief tells whether or not this node may be further expanded
+     * @return true if the node is a dead end. false otherwise
+     */
+     bool search_node::is_dead_end() const {
       return is_dead_end_;
     }
 
-
-    void search_node::set_scorer(std::function<double(double, int, int)> scorer) {
-      scorer_ = scorer;
-    }
 }
 
 #endif

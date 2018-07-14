@@ -6,4 +6,4 @@ macro (setup_test test_name test_file)
 endmacro ()
 
 setup_test (MCTS_tests MCTS.cc)
-
+setup_test (search_node_tests search_node.cc)
