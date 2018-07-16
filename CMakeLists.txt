@@ -37,3 +37,5 @@ if (symreg_tests)
   add_subdirectory("./deps/googletest")
   add_subdirectory("./test")
 endif()
+
+add_subdirectory("./src")
