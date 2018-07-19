@@ -10,7 +10,7 @@ int main() {
     200
   );
 
-  symreg::MCTS mcts{5, 1, 500, ds, symreg::UCB1, symreg::NRMSD};
+  symreg::MCTS::MCTS mcts{5, 500, ds, symreg::UCB1, symreg::NRMSD};
   mcts.iterate();
 
   auto res = mcts.build_result();

@@ -194,7 +194,6 @@ namespace symreg
       auto shape = ast_node_->is_terminal() ? "doublecircle" : "circle";
       auto parent_n = parent_ ? parent_->n_ : 0;
       ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() 
-        << "\n UCB1: " << scorer_(v_, n_, parent_n) // TODO get rid of this in production mode
         << "\nn: " << n_ << ", " << "\nv: " << v_ << "\", " << "shape=" << shape << "]" << std::endl;
       if (up_link_) {
         ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << " [arrowhead=crow,color=blue]" << std::endl;
