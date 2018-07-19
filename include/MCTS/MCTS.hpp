@@ -14,10 +14,10 @@
 #include "brick.hpp"
 #include "dataset.hpp"
 #include "MCTS/search_node.hpp"
+#include "MCTS/util.hpp"
 #include "MCTS/simulator.hpp"
 
 #define LOG_LEVEL 1
-
 
 namespace symreg {
   
@@ -132,7 +132,7 @@ namespace symreg {
         log_stream_(log_file_),
         simulator_(bind_loss_fn(loss_, dataset_), depth_limit)
     { 
-      ::symreg::MCTS::simulator::add_actions(curr_, depth_limit);
+      simulator_.add_actions(curr_);
     }
 
     /**

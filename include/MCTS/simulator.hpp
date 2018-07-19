@@ -1,5 +1,5 @@
-#ifndef SYMREG_MCTS_MCTS_SIMULATOR_HPP_
-#define SYMREG_MCTS_MCTS_SIMULATOR_HPP_
+#ifndef SYMREG_MCTS_SIMULATOR_HPP_
+#define SYMREG_MCTS_SIMULATOR_HPP_
 
 #include <algorithm>
 #include <fstream>
@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
-
 #include "MCTS/search_node.hpp"
+#include "MCTS/action_factory.hpp"
 
 namespace symreg
 {
@@ -21,50 +21,6 @@ namespace MCTS
 namespace simulator
 {
   using AST = brick::AST::AST;
-
-  /**
-   * @brief simply returns a random integer in the range [lower, upper] 
-   *
-   * build a uniform integer distribution to be used with the MCTS class' Marsenne twister
-   *
-   * @param lower the lowest possible integer which may be returned
-   * @param upper the highest possible integer which may be returned
-   * @return a random integer on [lower, upper]
-   */
-  int get_random(int lower, int upper, std::mt19937& mt) {
-    std::uniform_int_distribution<std::mt19937::result_type> dist(lower, upper);
-    return dist(mt); 
-  }
-
-  /**
-   * @brief returns a vector of unique pointers to all possible node types
-   *
-   * a vector is created and unique pointers to all AST node types are pushed
-   * onto the vector
-   *
-   * @param max_action_arity the maximum arity of the returned nodes i.e. the maximum number
-   * of children the nodes support
-   * @return a vector of unique pointers for all possible node types
-   */
-  std::vector<std::unique_ptr<brick::AST::node>> get_action_set(int max_action_arity) {
-    std::vector<std::unique_ptr<brick::AST::node>> actions;
-    // binary operators
-    if (max_action_arity >= 2) {
-      actions.push_back(std::make_unique<brick::AST::addition_node>());
-      actions.push_back(std::make_unique<brick::AST::multiplication_node>());
-    }
-    // unary operators
-    if (max_action_arity >= 1) {
-    }
-    // terminals
-    for (int a = 1; a < 3; a++) {
-      actions.push_back(std::make_unique<brick::AST::number_node>(a));
-    }
-
-    actions.push_back(std::make_unique<brick::AST::id_node>("_x0"));
-
-    return actions; 
-  }
 
   /**
    * @brief builds an AST starting from a search node to the root of the MCTS
@@ -167,25 +123,8 @@ namespace simulator
     if (targets.empty()) {
       return nullptr;
     }
-    int random = get_random(0, targets.size() - 1, mt);
+    int random = util::get_random_int(0, targets.size() - 1, mt);
     return targets[random];
-  }
-
-
-
-  /**
-   * @brief returns a unique pointer to a randomly chosen AST node type
-   *
-   * A random number is generated and used to return the corresponding node type
-   *
-   * @param max_arity the maximum arity of the returned node i.e. the maximum number
-   * of children the node type may support 
-   * @return a unique pointer to a randomly chosen node type
-   */
-  std::unique_ptr<brick::AST::node> get_random_action(int max_arity, std::mt19937& mt) {
-    std::vector<std::unique_ptr<brick::AST::node>> action_set = get_action_set(max_arity);
-    int random = get_random(0, action_set.size() - 1, mt);
-    return std::move(action_set[random]);
   }
 
   /**
@@ -200,7 +139,7 @@ namespace simulator
       return nullptr;
     }
 
-    int random = get_random(0, children.size() - 1, mt);
+    int random = util::get_random_int(0, children.size() - 1, mt);
     return &children[random]; 
   }
 
@@ -242,7 +181,8 @@ namespace simulator
    * @param curr the node to rollout from
    * @return the value of our randomly rolled out AST
    */
-  std::shared_ptr<AST> rollout(search_node* curr, int depth_limit, std::mt19937& mt) {
+  std::shared_ptr<AST> rollout(search_node* curr, int depth_limit, 
+      std::mt19937& mt, action_factory& af) {
     search_node* rollout_base = curr;
     std::shared_ptr<AST> ast = build_ast_upward(rollout_base);
 
@@ -258,7 +198,7 @@ namespace simulator
       auto max_child_arity = depth_limit - (size + num_unconnected);
       std::shared_ptr<AST> targ = targets.front();
       // add actions randomly
-      std::shared_ptr<AST> child = targ->add_child(get_random_action(max_child_arity, mt));
+      std::shared_ptr<AST> child = targ->add_child(af.get_random(max_child_arity));
       size++;
       num_unconnected += child->vacancy() - 1;
       if (!child->is_terminal()) {
@@ -270,60 +210,6 @@ namespace simulator
     }
     return ast;
   }
-
-  /**
-   * @brief Expansion, i.e., given a search node, attaches children nodes for all possible moves
-   * from the node. 
-   *
-   * starting from curr, the tree is searched upward to find nodes which have
-   * available slots for children to be attached. for each of the nodes found,
-   * all possible actions are attached to curr and up-linked to the the node. curr may only
-   * be expanded while there are still possible moves to be made. actions are only added when
-   * their addition doesnt lead to ASTs of greater depth than depth_limit_
-   *
-   * Design decision: depth limit
-   *
-   * @param curr the node to be expanded
-   * @return a boolean denoting whether or not the node was expanded
-   */
-  bool add_actions(search_node* curr, int depth_limit) {
-    // find nodes above in the MCTS tree which need children in the AST sense
-
-    std::vector<search_node*> targets = get_up_link_targets(curr);
-    if (targets.empty()) {
-      return false;
-    }
-    auto parent_depth = curr->get_depth(); // how many symbols deep are we in this MCTS path
-    auto unconnected = curr->get_unconnected(); // how many children are still needed to complete this AST
-    // don't add nodes which will cause us to exceed depth limit
-    auto max_child_arity = depth_limit - (parent_depth + unconnected);
-
-    // if we're already at max depth, don't add any more nodes
-    if (parent_depth >= depth_limit) {
-      return false;
-    }
-    for (search_node* targ : targets) {
-      // we're moving these nodes so have to get a new action set each iteration
-      std::vector<std::unique_ptr<brick::AST::node>> 
-        actions = get_action_set(max_child_arity);
-
-      for (auto it = actions.begin(); it != actions.end();) {
-        auto child = curr->add_child(std::move(*it));
-        child->set_parent(curr);
-        child->set_up_link(targ);
-        child->set_depth(curr->get_depth() + 1);
-        child->set_unconnected(
-            curr->get_unconnected() - 1 + child->get_ast_node()->num_children()
-        );
-        
-        // we must erase these from the vector after they are moved otherwise
-        // the memory gets freed when the vector goes out of scope. TODO: can we avoid this?
-        it = actions.erase(it);
-      }
-    }
-    return true;
-  }
-
 
   /**
    * @brief Chooses a leaf to rollout/expand randomly
@@ -375,17 +261,74 @@ namespace simulator
       std::mt19937 rng_;
       RewardFn reward_;
       int depth_limit_;
+      action_factory af_;
     public:
       simulator(const RewardFn&, int);
       void simulate(search_node*, int num_sim); 
+      bool add_actions(search_node* curr); 
   };
 
   template <class RewardFn>
   simulator<RewardFn>::simulator(const RewardFn& reward, int depth_limit)
     : reward_(reward),
-      depth_limit_(depth_limit)
+      depth_limit_(depth_limit),
+      af_(action_factory{rng_, 1})
   {
     rng_.seed(std::random_device()());
+  }
+
+  /**
+   * @brief Expansion, i.e., given a search node, attaches children nodes for all possible moves
+   * from the node. 
+   *
+   * starting from curr, the tree is searched upward to find nodes which have
+   * available slots for children to be attached. for each of the nodes found,
+   * all possible actions are attached to curr and up-linked to the the node. curr may only
+   * be expanded while there are still possible moves to be made. actions are only added when
+   * their addition doesnt lead to ASTs of greater depth than depth_limit_
+   *
+   * Design decision: depth limit
+   *
+   * @param curr the node to be expanded
+   * @return a boolean denoting whether or not the node was expanded
+   */
+  template <class RewardFn>
+  bool simulator<RewardFn>::add_actions(search_node* curr) {
+    // find nodes above in the MCTS tree which need children in the AST sense
+
+    std::vector<search_node*> targets = get_up_link_targets(curr);
+    if (targets.empty()) {
+      return false;
+    }
+    auto parent_depth = curr->get_depth(); // how many symbols deep are we in this MCTS path
+    auto unconnected = curr->get_unconnected(); // how many children are still needed to complete this AST
+    // don't add nodes which will cause us to exceed depth limit
+    auto max_child_arity = depth_limit_ - (parent_depth + unconnected);
+
+    // if we're already at max depth, don't add any more nodes
+    if (parent_depth >= depth_limit_) {
+      return false;
+    }
+    for (search_node* targ : targets) {
+      // we're moving these nodes so have to get a new action set each iteration
+      std::vector<std::unique_ptr<brick::AST::node>> 
+        actions = af_.get_set(max_child_arity);
+
+      for (auto it = actions.begin(); it != actions.end();) {
+        auto child = curr->add_child(std::move(*it));
+        child->set_parent(curr);
+        child->set_up_link(targ);
+        child->set_depth(curr->get_depth() + 1);
+        child->set_unconnected(
+            curr->get_unconnected() - 1 + child->get_ast_node()->num_children()
+        );
+        
+        // we must erase these from the vector after they are moved otherwise
+        // the memory gets freed when the vector goes out of scope. TODO: can we avoid this?
+        it = actions.erase(it);
+      }
+    }
+    return true;
   }
 
   /**
@@ -412,13 +355,13 @@ namespace simulator
       if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
           // TODO
-        } else if (add_actions(leaf, depth_limit_)) {
+        } else if (add_actions(leaf)) {
           leaf = &(leaf->get_children()[0]);
         } else {
           leaf->set_dead_end();
         } 
       }
-      double value = reward_(rollout(leaf, depth_limit_, rng_));
+      double value = reward_(rollout(leaf, depth_limit_, rng_, af_));
       backprop(value, leaf);
     }
   }
