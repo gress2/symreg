@@ -15,7 +15,7 @@
 #include "dataset.hpp"
 #include "MCTS/search_node.hpp"
 #include "MCTS/util.hpp"
-#include "MCTS/simulator.hpp"
+#include "MCTS/simulator/simulator.hpp"
 
 #define LOG_LEVEL 1
 

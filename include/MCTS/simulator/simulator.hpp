@@ -1,5 +1,5 @@
-#ifndef SYMREG_MCTS_SIMULATOR_HPP_
-#define SYMREG_MCTS_SIMULATOR_HPP_
+#ifndef SYMREG_MCTS_SIMULATOR_SIMULATOR_HPP_
+#define SYMREG_MCTS_SIMULATOR_SIMULATOR_HPP_
 
 #include <algorithm>
 #include <fstream>
@@ -12,7 +12,9 @@
 #include <vector>
 
 #include "MCTS/search_node.hpp"
-#include "MCTS/action_factory.hpp"
+#include "MCTS/simulator/action_factory.hpp"
+#include "MCTS/simulator/recursive_random_child_picker.hpp"
+#include "MCTS/simulator/random_leaf_picker.hpp"
 
 namespace symreg
 {
@@ -128,22 +130,6 @@ namespace simulator
   }
 
   /**
-   * @brief returns a pointer to a random child of a passed search node
-   * @param node the node which we wish to pick a child of
-   * @return a pointer to the random child
-   */ 
-  search_node* random_child(search_node* node, std::mt19937& mt) {
-    auto& children = node->get_children();
-
-    if (children.empty()) {
-      return nullptr;
-    }
-
-    int random = util::get_random_int(0, children.size() - 1, mt);
-    return &children[random]; 
-  }
-
-  /**
    * @brief finds slots for available children in an AST
    *
    * given an AST starting at ast, recurses the tree to find all
@@ -212,28 +198,6 @@ namespace simulator
   }
 
   /**
-   * @brief Chooses a leaf to rollout/expand randomly
-   *
-   * Starting from the current node of the algorithm,
-   * iterates downward through the tree by choosing children
-   * completely at random
-   *
-   * @return a pointer to the chosen search node
-   */
-  search_node* choose_leaf_randomly(search_node* node, std::mt19937& mt) {
-    while (!node->is_leaf_node()) {
-      auto child = random_child(node, mt);
-      if (child) {
-        node = child;
-      } else {
-        return nullptr;
-      }
-    }
-
-    return node;
-  }
-
-  /**
    * @brief the method for propagating visit count and node value
    * up the tree to ancestor nodes
    *
@@ -262,6 +226,7 @@ namespace simulator
       RewardFn reward_;
       int depth_limit_;
       action_factory af_;
+      random_leaf_picker lp_;
     public:
       simulator(const RewardFn&, int);
       void simulate(search_node*, int num_sim); 
@@ -272,7 +237,8 @@ namespace simulator
   simulator<RewardFn>::simulator(const RewardFn& reward, int depth_limit)
     : reward_(reward),
       depth_limit_(depth_limit),
-      af_(action_factory{rng_, 1})
+      af_(action_factory{rng_, 1}),
+      lp_(random_leaf_picker{rng_})
   {
     rng_.seed(std::random_device()());
   }
@@ -347,7 +313,7 @@ namespace simulator
   template <class RewardFn>
   void simulator<RewardFn>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
-      search_node* leaf = choose_leaf_randomly(curr, rng_);
+      search_node* leaf = lp_.pick(curr);
       if (!leaf) {
         continue;
       }
