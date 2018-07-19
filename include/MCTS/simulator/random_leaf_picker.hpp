@@ -16,8 +16,8 @@ namespace simulator
  */
 class random_leaf_picker : public leaf_picker<random_leaf_picker> {
   private:
-    std::mt19937& mt_;
     void build_leaf_vector(search_node*, std::vector<search_node*>&);
+    std::mt19937& mt_;
   public:
     random_leaf_picker(std::mt19937&);
     search_node* pick_leaf(search_node*);
@@ -27,7 +27,7 @@ class random_leaf_picker : public leaf_picker<random_leaf_picker> {
  * @brief random_leaf_picker constructor
  * @param mt a reference to a marsenne twister instance
  */
-random_leaf_picker::random_leaf_picker(std::mt19937& mt)
+random_leaf_picker::random_leaf_picker(std::mt19937& mt) 
   : mt_(mt)
 {}
 

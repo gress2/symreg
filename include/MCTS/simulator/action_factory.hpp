@@ -11,16 +11,17 @@ namespace simulator
 
   class action_factory {
     private:
-      std::mt19937& mt_;
       int num_dims_;
+      std::mt19937& mt_;
     public:
-      action_factory(std::mt19937&, int);
+      action_factory(int, std::mt19937&);
       std::vector<std::unique_ptr<brick::AST::node>> get_set(int);
       std::unique_ptr<brick::AST::node> get_random(int);
   }; 
 
-  action_factory::action_factory(std::mt19937& mt, int num_dims) 
-    : mt_(mt), num_dims_(num_dims)
+  action_factory::action_factory(int num_dims, std::mt19937& mt) 
+    : num_dims_(num_dims),
+      mt_(mt)
   {
   }
 

@@ -15,6 +15,7 @@
 #include "MCTS/simulator/action_factory.hpp"
 #include "MCTS/simulator/recursive_random_child_picker.hpp"
 #include "MCTS/simulator/random_leaf_picker.hpp"
+#include "MCTS/simulator/recursive_heuristic_child_picker.hpp"
 
 namespace symreg
 {
@@ -167,8 +168,7 @@ namespace simulator
    * @param curr the node to rollout from
    * @return the value of our randomly rolled out AST
    */
-  std::shared_ptr<AST> rollout(search_node* curr, int depth_limit, 
-      std::mt19937& mt, action_factory& af) {
+  std::shared_ptr<AST> rollout(search_node* curr, int depth_limit, action_factory& af) {
     search_node* rollout_base = curr;
     std::shared_ptr<AST> ast = build_ast_upward(rollout_base);
 
@@ -219,29 +219,38 @@ namespace simulator
     }
   }
 
-  template <class RewardFn>
+  template <class RewardFn, class LeafPicker>
   class simulator {
     private:
-      std::mt19937 rng_;
       RewardFn reward_;
       int depth_limit_;
       action_factory af_;
-      random_leaf_picker lp_;
+      LeafPicker lp_;
+      std::mt19937& mt_;
     public:
-      simulator(const RewardFn&, int);
+      simulator(
+        const RewardFn&, 
+        LeafPicker,
+        int,
+        std::mt19937&
+      );
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
   };
 
-  template <class RewardFn>
-  simulator<RewardFn>::simulator(const RewardFn& reward, int depth_limit)
+  template <class RewardFn, class LeafPicker>
+  simulator<RewardFn, LeafPicker>::simulator(
+    const RewardFn& reward, 
+    LeafPicker lp, 
+    int depth_limit,
+    std::mt19937& mt
+  )
     : reward_(reward),
       depth_limit_(depth_limit),
-      af_(action_factory{rng_, 1}),
-      lp_(random_leaf_picker{rng_})
-  {
-    rng_.seed(std::random_device()());
-  }
+      af_(action_factory{1, mt}),
+      lp_(lp),
+      mt_(mt)
+  {}
 
   /**
    * @brief Expansion, i.e., given a search node, attaches children nodes for all possible moves
@@ -258,8 +267,8 @@ namespace simulator
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class RewardFn>
-  bool simulator<RewardFn>::add_actions(search_node* curr) {
+  template <class RewardFn, class LeafPicker>
+  bool simulator<RewardFn, LeafPicker>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -310,8 +319,8 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class RewardFn>
-  void simulator<RewardFn>::simulate(search_node* curr, int num_sim) {
+  template <class RewardFn, class LeafPicker>
+  void simulator<RewardFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
       search_node* leaf = lp_.pick(curr);
       if (!leaf) {
@@ -327,7 +336,7 @@ namespace simulator
           leaf->set_dead_end();
         } 
       }
-      double value = reward_(rollout(leaf, depth_limit_, rng_, af_));
+      double value = reward_(rollout(leaf, depth_limit_, af_));
       backprop(value, leaf);
     }
   }

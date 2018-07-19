@@ -192,7 +192,6 @@ namespace symreg
       std::stringstream ss;
       auto node_id = ast_node_->get_node_id();
       auto shape = ast_node_->is_terminal() ? "doublecircle" : "circle";
-      auto parent_n = parent_ ? parent_->n_ : 0;
       ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() 
         << "\nn: " << n_ << ", " << "\nv: " << v_ << "\", " << "shape=" << shape << "]" << std::endl;
       if (up_link_) {

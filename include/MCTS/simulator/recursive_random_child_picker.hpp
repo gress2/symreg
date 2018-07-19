@@ -15,10 +15,10 @@ namespace simulator
  */
 class recursive_random_child_picker : public leaf_picker<recursive_random_child_picker> {
   private:
-    std::mt19937& mt_;
     search_node* random_child(search_node*);
+    std::mt19937& mt_;
   public:
-    recursive_random_child_picker(std::mt19937&);
+    recursive_random_child_picker(std::mt19937& mt);
     search_node* pick_leaf(search_node*); 
 };
 
