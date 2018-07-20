@@ -14,6 +14,9 @@ struct dataset {
 template <class T>
 dataset generate_dataset(T mapped_lambda, int n, int min, int max) {
   int gap = (max - min) / n;
+  if (!gap) {
+    gap = 1;
+  }
   dataset ds;
   for (int i = min; i < max; i += gap) {
     ds.x.push_back(i);
