@@ -63,6 +63,9 @@ template <
 >
 class MCTS {
   private:
+    // STATIC MEMBERS
+    static std::random_device rd_;
+    static std::mt19937 mt_;
     // MEMBERS
     const int num_simulations_;
     dataset dataset_; 
@@ -72,8 +75,6 @@ class MCTS {
     LossFn loss_;
     const std::string log_file_;
     std::ofstream log_stream_;
-    static std::random_device rd_;
-    static std::mt19937 mt_;
     simulator::simulator<
       decltype(bind_loss_fn(loss_, dataset_)),
       LeafPicker
@@ -94,6 +95,7 @@ class MCTS {
     std::string to_gv() const;
     dataset& get_dataset();
     std::shared_ptr<brick::AST::AST> build_result();
+    void reset();
 };
 
 template <class MAB, class LossFn, class LeafPicker>
@@ -216,6 +218,18 @@ dataset& MCTS<MAB, LossFn, LeafPicker>::get_dataset() {
 template <class MAB, class LossFn, class LeafPicker>
 std::shared_ptr<AST> MCTS<MAB, LossFn, LeafPicker>::build_result() {
   return ::symreg::MCTS::simulator::build_ast_upward(curr_);
+}
+
+/**
+ * @brief Resets the state of the MCTS search, allowing the next
+ * iterate call to operate from a blank slate
+ */
+template <class MAB, class LossFn, class LeafPicker>
+void MCTS<MAB, LossFn, LeafPicker>::reset() {
+  root_.get_children().clear();
+  root_.set_v(0);
+  root_.set_n(0);
+  curr_ = &root_;
 }
   
 }
