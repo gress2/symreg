@@ -16,9 +16,8 @@ namespace simulator
 class recursive_random_child_picker : public leaf_picker<recursive_random_child_picker> {
   private:
     search_node* random_child(search_node*);
-    std::mt19937& mt_;
   public:
-    recursive_random_child_picker(std::mt19937& mt);
+    recursive_random_child_picker();
     search_node* pick_leaf(search_node*); 
 };
 
@@ -26,8 +25,7 @@ class recursive_random_child_picker : public leaf_picker<recursive_random_child_
  * @brief recursive_random_child_picker constructor
  * @param mt a reference to a marsenne twister instance
  */
-recursive_random_child_picker::recursive_random_child_picker(std::mt19937& mt)
-  : mt_(mt)
+recursive_random_child_picker::recursive_random_child_picker()
 {}
 
 /**
@@ -42,7 +40,7 @@ search_node* recursive_random_child_picker::random_child(search_node* node) {
     return nullptr;
   }
 
-  int random = util::get_random_int(0, children.size() - 1, mt_);
+  int random = util::get_random_int(0, children.size() - 1, MCTS::mt);
   return &children[random]; 
 }
 

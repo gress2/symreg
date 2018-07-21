@@ -13,6 +13,7 @@
 
 #include "brick.hpp"
 #include "dataset.hpp"
+#include "MCTS/mt.hpp"
 #include "MCTS/search_node.hpp"
 #include "MCTS/lambda_lib.hpp"
 #include "MCTS/util.hpp"
@@ -27,7 +28,6 @@ namespace MCTS
   
 using AST = brick::AST::AST;
 
-
 /**
  * @brief returns a pointer to the child of a search node with the highest
  * UCB1 value.
@@ -39,21 +39,21 @@ using AST = brick::AST::AST;
  * @return a pointer to the child of a search node with highest UCB1 value
  * if children exist, a nullptr otherwise.
  */
-template <class MAB>
-search_node* choose_move(search_node* node, MAB& mab) {
+search_node* choose_move(search_node* node) {
+  std::vector<search_node*> moves;
   double max = -std::numeric_limits<double>::infinity();
-  search_node* max_node = nullptr;
   for (auto& child : node->get_children()) {
-    if (child.get_n() == 0) {
-      return &child;
+    auto n = child.get_n();
+    if (n > max) {
+      max = n;
+      moves.clear();
+      moves.push_back(&child);
+    } else if (n == max) {
+      moves.push_back(&child);
     }
-    double score = mab(child.get_v(), child.get_n(), node->get_n());
-    if (score > max) {
-      max = score;
-      max_node = &child;
-    } 
   }
-  return max_node;
+  auto random = util::get_random_int(0, moves.size() - 1, MCTS::mt);
+  return moves[random];
 }
 
 template <
@@ -65,7 +65,6 @@ class MCTS {
   private:
     // STATIC MEMBERS
     static std::random_device rd_;
-    static std::mt19937 mt_;
     // MEMBERS
     const int num_simulations_;
     dataset dataset_; 
@@ -89,7 +88,7 @@ class MCTS {
       dataset, 
       const MAB& = UCB1, 
       const LossFn& = NRMSD, 
-      LeafPicker = simulator::recursive_random_child_picker(mt_) 
+      LeafPicker = simulator::recursive_random_child_picker() 
     );
     void iterate();
     std::string to_gv() const;
@@ -98,11 +97,6 @@ class MCTS {
     void reset();
 };
 
-template <class MAB, class LossFn, class LeafPicker>
-std::random_device MCTS<MAB, LossFn, LeafPicker>::rd_;
-
-template <class MAB, class LossFn, class LeafPicker>
-std::mt19937 MCTS<MAB, LossFn, LeafPicker>::mt_(rd_());
 
 /**
  * @brief MCTS constructor
@@ -129,7 +123,7 @@ MCTS<MAB, LossFn, LeafPicker>::MCTS(
     loss_(loss),
     log_file_("mcts.log"),
     log_stream_(log_file_),
-    simulator_(bind_loss_fn(loss_, dataset_), lp, depth_limit, mt_)
+    simulator_(bind_loss_fn(loss_, dataset_), lp, depth_limit)
 { 
   simulator_.add_actions(curr_);
 }
@@ -153,7 +147,7 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
     }
     simulator_.simulate(curr_, num_simulations_);
     search_node* prev = curr_;
-    curr_ = choose_move(curr_, mab_);
+    curr_ = choose_move(curr_);
     #if LOG_LEVEL > 0
     log_stream_ << "Iteration: " << i << std::endl;
     write_game_state(i);

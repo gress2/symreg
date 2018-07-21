@@ -12,7 +12,6 @@ int main() {
 
   auto leaf_picker = symreg::MCTS::simulator::recursive_heuristic_child_picker(symreg::MCTS::UCB1);
 
-
   symreg::MCTS::MCTS mcts{5, 500, ds, symreg::MCTS::UCB1, symreg::MCTS::NRMSD, leaf_picker};
 
   for (int i = 0; i < 500; i++) {

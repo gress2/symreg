@@ -15,10 +15,10 @@ TEST(ChooseMove, ChoosesCorrectNodes) {
   child = parent.add_child(std::make_unique<brick::AST::number_node>(3));
   child->set_n(5);
   child->set_v(6);
-  auto choice = choose_move(&parent, symreg::MCTS::UCB1);
+  auto choice = symreg::MCTS::choose_move(&parent);
   ASSERT_TRUE(choice == &(parent.get_children()[1]));
-  child->set_n(0);
-  choice = choose_move(&parent, symreg::MCTS::UCB1);
+  child->set_n(500);
+  choice = symreg::MCTS::choose_move(&parent);
   ASSERT_TRUE(choice == &(parent.get_children()[2]));
 }
 

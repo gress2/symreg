@@ -12,16 +12,14 @@ namespace simulator
   class action_factory {
     private:
       int num_dims_;
-      std::mt19937& mt_;
     public:
-      action_factory(int, std::mt19937&);
+      action_factory(int);
       std::vector<std::unique_ptr<brick::AST::node>> get_set(int);
       std::unique_ptr<brick::AST::node> get_random(int);
   }; 
 
-  action_factory::action_factory(int num_dims, std::mt19937& mt) 
-    : num_dims_(num_dims),
-      mt_(mt)
+  action_factory::action_factory(int num_dims) 
+    : num_dims_(num_dims)
   {
   }
 
@@ -68,7 +66,7 @@ namespace simulator
    */
   std::unique_ptr<brick::AST::node> action_factory::get_random(int max_arity) {
     std::vector<std::unique_ptr<brick::AST::node>> action_set = get_set(max_arity);
-    int random = util::get_random_int(0, action_set.size() - 1, mt_);
+    int random = util::get_random_int(0, action_set.size() - 1, MCTS::mt);
     return std::move(action_set[random]);
   }
 }

@@ -121,12 +121,12 @@ namespace simulator
    * @param curr the node from which we start the parent search
    * @return a random parent target in this path of the MCTS tree
    */ 
-  search_node* get_random_up_link_target(search_node* curr, std::mt19937& mt) {
+  search_node* get_random_up_link_target(search_node* curr) {
     auto targets = get_up_link_targets(curr);
     if (targets.empty()) {
       return nullptr;
     }
-    int random = util::get_random_int(0, targets.size() - 1, mt);
+    int random = util::get_random_int(0, targets.size() - 1, MCTS::mt);
     return targets[random];
   }
 
@@ -226,13 +226,11 @@ namespace simulator
       int depth_limit_;
       action_factory af_;
       LeafPicker lp_;
-      std::mt19937& mt_;
     public:
       simulator(
         const RewardFn&, 
         LeafPicker,
-        int,
-        std::mt19937&
+        int
       );
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
@@ -242,14 +240,12 @@ namespace simulator
   simulator<RewardFn, LeafPicker>::simulator(
     const RewardFn& reward, 
     LeafPicker lp, 
-    int depth_limit,
-    std::mt19937& mt
+    int depth_limit
   )
     : reward_(reward),
       depth_limit_(depth_limit),
-      af_(action_factory{1, mt}),
-      lp_(lp),
-      mt_(mt)
+      af_(action_factory{1}),
+      lp_(lp)
   {}
 
   /**
