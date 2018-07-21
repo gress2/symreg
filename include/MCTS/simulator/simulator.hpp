@@ -219,33 +219,40 @@ namespace simulator
     }
   }
 
-  template <class RewardFn, class LeafPicker>
+  template <class LossFn, class LeafPicker>
   class simulator {
     private:
-      RewardFn reward_;
+      LossFn loss_;
       int depth_limit_;
       action_factory af_;
       LeafPicker lp_;
+      double thresh_;
+      std::shared_ptr<AST> ast_within_thresh_;
     public:
       simulator(
-        const RewardFn&, 
+        const LossFn&, 
         LeafPicker,
         int
       );
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
+      bool got_reward_within_thresh();
+      std::shared_ptr<AST> get_ast_within_thresh();
+      void reset();
   };
 
-  template <class RewardFn, class LeafPicker>
-  simulator<RewardFn, LeafPicker>::simulator(
-    const RewardFn& reward, 
+  template <class LossFn, class LeafPicker>
+  simulator<LossFn, LeafPicker>::simulator(
+    const LossFn& loss, 
     LeafPicker lp, 
     int depth_limit
   )
-    : reward_(reward),
+    : loss_(loss),
       depth_limit_(depth_limit),
       af_(action_factory{1}),
-      lp_(lp)
+      lp_(lp),
+      thresh_(.9),
+      ast_within_thresh_(nullptr)
   {}
 
   /**
@@ -263,8 +270,8 @@ namespace simulator
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class RewardFn, class LeafPicker>
-  bool simulator<RewardFn, LeafPicker>::add_actions(search_node* curr) {
+  template <class LossFn, class LeafPicker>
+  bool simulator<LossFn, LeafPicker>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -315,8 +322,8 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class RewardFn, class LeafPicker>
-  void simulator<RewardFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
+  template <class LossFn, class LeafPicker>
+  void simulator<LossFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
       search_node* leaf = lp_.pick(curr);
       if (!leaf) {
@@ -332,9 +339,29 @@ namespace simulator
           leaf->set_dead_end();
         } 
       }
-      double value = reward_(rollout(leaf, depth_limit_, af_));
+      auto rollout_ast = rollout(leaf, depth_limit_, af_);
+      double value = 1 - loss_(rollout_ast);
       backprop(value, leaf);
+      if (value > thresh_) {
+        ast_within_thresh_ = rollout_ast;
+        break;
+      }
     }
+  }
+
+  template <class LossFn, class LeafPicker>
+  bool simulator<LossFn, LeafPicker>::got_reward_within_thresh() {
+    return ast_within_thresh_.get();
+  }
+
+  template <class LossFn, class LeafPicker>
+  std::shared_ptr<AST> simulator<LossFn, LeafPicker>::get_ast_within_thresh() {
+    return ast_within_thresh_;
+  }
+
+  template <class LossFn, class LeafPicker>
+  void simulator<LossFn, LeafPicker>::reset() {
+    ast_within_thresh_ = nullptr;
   }
 
 }

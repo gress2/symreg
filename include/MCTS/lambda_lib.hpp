@@ -24,13 +24,14 @@ static auto NRMSD = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
   double RMSD = sqrt(MSE(ds, ast));
   double min = *std::min_element(ds.y.begin(), ds.y.end());
   double max = *std::max_element(ds.y.begin(), ds.y.end());
-  return RMSD / (max - min);
+  auto nrmsd = RMSD / (max - min);
+  return nrmsd;
 };
 
 template <typename LossFn>
 auto bind_loss_fn(LossFn& loss, dataset& ds) {
   return [&] (std::shared_ptr<brick::AST::AST> ast) {
-    return -loss(ds, ast);
+    return loss(ds, ast);
   }; 
 }
 

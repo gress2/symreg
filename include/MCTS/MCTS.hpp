@@ -74,6 +74,7 @@ class MCTS {
     LossFn loss_;
     const std::string log_file_;
     std::ofstream log_stream_;
+    std::shared_ptr<brick::AST::AST> result_ast_;
     simulator::simulator<
       decltype(bind_loss_fn(loss_, dataset_)),
       LeafPicker
@@ -95,6 +96,7 @@ class MCTS {
     dataset& get_dataset();
     std::shared_ptr<brick::AST::AST> build_result();
     void reset();
+    std::shared_ptr<brick::AST::AST> get_result();
 };
 
 
@@ -123,6 +125,7 @@ MCTS<MAB, LossFn, LeafPicker>::MCTS(
     loss_(loss),
     log_file_("mcts.log"),
     log_stream_(log_file_),
+    result_ast_(nullptr),
     simulator_(bind_loss_fn(loss_, dataset_), lp, depth_limit)
 { 
   simulator_.add_actions(curr_);
@@ -141,11 +144,18 @@ MCTS<MAB, LossFn, LeafPicker>::MCTS(
  */
 template <class MAB, class LossFn, class LeafPicker>
 void MCTS<MAB, LossFn, LeafPicker>::iterate() {
-  for (std::size_t i = 0; i < num_simulations_; i++) {
+  std::size_t i = 0;
+  while (true) {
     if (game_over()) {
       break;
     }
     simulator_.simulate(curr_, num_simulations_);
+
+    if (simulator_.got_reward_within_thresh()) {
+      result_ast_ = simulator_.get_ast_within_thresh();
+      break;
+    }
+
     search_node* prev = curr_;
     curr_ = choose_move(curr_);
     #if LOG_LEVEL > 0
@@ -156,6 +166,7 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
       curr_ = prev;
       break;
     }
+    i++;
   }
 }
 
@@ -210,8 +221,17 @@ dataset& MCTS<MAB, LossFn, LeafPicker>::get_dataset() {
  * @return a shared pointer to an AST
  */
 template <class MAB, class LossFn, class LeafPicker>
-std::shared_ptr<AST> MCTS<MAB, LossFn, LeafPicker>::build_result() {
+std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::build_result() {
   return ::symreg::MCTS::simulator::build_ast_upward(curr_);
+}
+
+template <class MAB, class LossFn, class LeafPicker>
+std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::get_result() {
+  if (result_ast_) {
+    return result_ast_;
+  } else {
+    return build_result();
+  }
 }
 
 /**
@@ -224,6 +244,8 @@ void MCTS<MAB, LossFn, LeafPicker>::reset() {
   root_.set_v(0);
   root_.set_n(0);
   curr_ = &root_;
+  result_ast_ = nullptr;
+  simulator_.reset();
 }
   
 }

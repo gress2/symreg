@@ -16,7 +16,7 @@ int main() {
 
   for (int i = 0; i < 500; i++) {
     mcts.iterate();
-    auto res = mcts.build_result();
+    auto res = mcts.get_result();
     std::cout << res->to_string() << std::endl;
     mcts.reset();
   }
