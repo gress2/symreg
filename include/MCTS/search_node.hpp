@@ -33,8 +33,8 @@ namespace symreg
       // MODIFERS
       void set_parent(search_node*);
       void set_up_link(search_node*);
-      search_node* add_child(std::unique_ptr<brick::AST::node>&&);
-      search_node* add_child(search_node&&);
+      void add_child(std::unique_ptr<brick::AST::node>&&);
+      void add_child(search_node&&);
       void set_scorer(std::function<double(double, int, int)>);
       void set_n(int);
       void set_v(double);
@@ -119,9 +119,8 @@ namespace symreg
      * @param child_content an r-value reference to a unique pointer for an AST node
      * @return a pointer to the child which was just added
      */
-    search_node* search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
+    void search_node::add_child(std::unique_ptr<brick::AST::node>&& child_content) {
       children_.push_back(search_node(std::move(child_content)));
-      return &(children_.back());
     }
 
     /**
@@ -129,9 +128,8 @@ namespace symreg
      * @param child an r-value reference to a search node
      * @return a pointer to the child which was just added
      */
-    search_node* search_node::add_child(search_node&& child) {
+    void search_node::add_child(search_node&& child) {
       children_.push_back(std::move(child));
-      return &(children_.back());
     }
 
     void search_node::set_scorer(std::function<double(double, int, int)> scorer) {

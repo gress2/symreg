@@ -5,15 +5,22 @@
 
 TEST(PickLeaf, ReturnsAValidLeaf) {
   symreg::search_node root(std::make_unique<brick::AST::posit_node>());
-  auto three = root.add_child(std::make_unique<brick::AST::number_node>(3));
-  auto mul = root.add_child(std::make_unique<brick::AST::multiplication_node>());
-  auto x = mul->add_child(std::make_unique<brick::AST::id_node>("x"));
-  auto y = mul->add_child(std::make_unique<brick::AST::id_node>("y"));
+  root.add_child(std::make_unique<brick::AST::number_node>(3));
+  root.add_child(std::make_unique<brick::AST::multiplication_node>());
+  auto* three = &(root.get_children()[0]);
+  auto* mul = &(root.get_children()[1]);
+  mul->add_child(std::make_unique<brick::AST::id_node>("x"));
+  mul->add_child(std::make_unique<brick::AST::id_node>("y"));
+  auto* x = &(mul->get_children()[0]);
+  auto* y = &(mul->get_children()[1]);
 
   symreg::MCTS::simulator::random_leaf_picker lp;
-
   auto c1 = lp.pick(&root);
-  std::cout << c1->get_ast_node()->to_string() << std::endl;
+  ASSERT_TRUE(c1 == three || c1 == x || c1 == y); 
+  auto c2 = lp.pick(mul);
+  ASSERT_TRUE(c2 == x || c2 == y);
+  auto c3 = lp.pick(x);
+  ASSERT_TRUE(c3 == x);
 }
 
 

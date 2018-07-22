@@ -367,12 +367,13 @@ namespace simulator
         actions = af_.get_set(max_child_arity);
 
       for (auto it = actions.begin(); it != actions.end();) {
-        auto child = curr->add_child(std::move(*it));
-        child->set_parent(curr);
-        child->set_up_link(targ);
-        child->set_depth(curr->get_depth() + 1);
-        child->set_unconnected(
-            curr->get_unconnected() - 1 + child->get_ast_node()->num_children()
+        curr->add_child(std::move(*it));
+        auto& child = curr->get_children().back();
+        child.set_parent(curr);
+        child.set_up_link(targ);
+        child.set_depth(curr->get_depth() + 1);
+        child.set_unconnected(
+            curr->get_unconnected() - 1 + child.get_ast_node()->num_children()
         );
         
         // we must erase these from the vector after they are moved otherwise

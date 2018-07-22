@@ -6,13 +6,16 @@
 TEST(ChooseMove, ChoosesCorrectNodes) {
   symreg::search_node parent(std::make_unique<brick::AST::number_node>(0));
   parent.set_n(50);
-  auto child = parent.add_child(std::make_unique<brick::AST::number_node>(1));
+  parent.add_child(std::make_unique<brick::AST::number_node>(1));
+  auto* child = &(parent.get_children().back());
   child->set_n(1);
   child->set_v(14);
-  child = parent.add_child(std::make_unique<brick::AST::number_node>(2));
+  parent.add_child(std::make_unique<brick::AST::number_node>(2));
+  child = &(parent.get_children().back());
   child->set_n(300);
   child->set_v(400);
-  child = parent.add_child(std::make_unique<brick::AST::number_node>(3));
+  parent.add_child(std::make_unique<brick::AST::number_node>(3));
+  child = &(parent.get_children().back());
   child->set_n(5);
   child->set_v(6);
   auto choice = symreg::MCTS::choose_move(&parent);
