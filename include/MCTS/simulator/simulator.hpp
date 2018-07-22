@@ -110,7 +110,7 @@ namespace simulator
     if (targets.empty()) {
       return nullptr;
     } else {
-      return targets.front();
+      return targets.back();
     }
   }
 
@@ -163,7 +163,7 @@ namespace simulator
    * AST, we evaluate the AST using the symbol table member of the MCTS class.
    * Rollouts may not exceed the depth_limit_ 
    *
-   * Design decision: FIFO method of appending random nodes -- does it matter?
+   * Design decision: LIFO method of appending random nodes -- does it matter?
    * Design decision: depth limit
    *
    * @param curr the node to rollout from

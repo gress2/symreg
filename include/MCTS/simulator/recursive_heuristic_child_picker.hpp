@@ -34,6 +34,9 @@ search_node* recursive_heuristic_child_picker<Heuristic>::max_heuristic_node(sea
   double max = -std::numeric_limits<double>::infinity();
   for (auto& child : node->get_children()) {
     if (child.get_n() == 0) {
+      if (max < std::numeric_limits<double>::infinity()) {
+        moves.clear();
+      }
       max = std::numeric_limits<double>::infinity();
       moves.push_back(&child);
       continue;
