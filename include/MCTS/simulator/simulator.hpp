@@ -8,6 +8,7 @@
 #include <memory>
 #include <queue> 
 #include <random>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -219,9 +220,79 @@ namespace simulator
     }
   }
 
-  template <class LossFn, class LeafPicker>
+  template <class F, class TN, class TV, class... Args>
+  constexpr TN compute_tipping_point(
+    F&& function,
+    TV vterminal,
+    TN nterminal,
+    TV vother,
+    TN nother,
+    TN ntotal,
+    Args&&... args
+  )
+  {
+    // Types and constants
+    static_assert(std::is_floating_point<TV>::value);
+    static_assert(std::is_arithmetic<TN>::value);
+    using floating_point = TV;
+    using integer = TN;
+    constexpr floating_point min = std::numeric_limits<floating_point>::min();
+    constexpr floating_point max = std::numeric_limits<integer>::max();
+
+    // Functions
+    const integer n = ntotal - nother - nterminal;
+    auto difference = [=, &function, &args...](auto x) {
+      const auto fterminal = std::forward<F>(function)(
+        vterminal,
+        x,
+        x + nother + n,
+        std::forward<Args>(args)...
+      );
+      const auto fother = std::forward<F>(function)(
+        vother,
+        nother,
+        x + nother + n,
+        std::forward<Args>(args)...
+      );
+      return fterminal - fother;
+    };
+
+    // Initialization
+    bool ok = nterminal > 0 && nother > 0 && nterminal + nother <= ntotal;
+    floating_point x0 = 0;
+    floating_point x1 = nterminal;
+    floating_point x2 = nother;
+    floating_point f0 = 0;
+    floating_point f1 = 0;
+    integer n0 = 0;
+    integer n1 = std::ceil(x1);
+    bool stabilized = false;
+
+    // Secant method
+    if (ok && difference(nterminal) > 0) {
+      f1 = difference(x1);
+      do {
+        x0 = x1;
+        x1 = x2;
+        f0 = f1;
+        f1 = difference(x1);
+        n0 = n1;
+        n1 = std::ceil(x1);
+        x2 = x1 - f1 * (x1 - x0) / (f1 - f0);
+        stabilized = std::signbit(f0 * f1) && n0 == n1;
+      } while(!stabilized && std::isnormal(x2 - x1) && x2 < max);
+      if (stabilized || std::abs(x2 - x1) < min || std::abs(f1 - f0) < min) {
+        nterminal = std::max(nterminal, n1);
+      }
+    }
+
+    return nterminal;
+  }
+
+  template <class MAB, class LossFn, class LeafPicker>
   class simulator {
     private:
+      MAB mab_;
       LossFn loss_;
       int depth_limit_;
       action_factory af_;
@@ -230,6 +301,7 @@ namespace simulator
       std::shared_ptr<AST> ast_within_thresh_;
     public:
       simulator(
+        const MAB&,
         const LossFn&, 
         LeafPicker,
         int
@@ -241,13 +313,15 @@ namespace simulator
       void reset();
   };
 
-  template <class LossFn, class LeafPicker>
-  simulator<LossFn, LeafPicker>::simulator(
+  template <class MAB, class LossFn, class LeafPicker>
+  simulator<MAB, LossFn, LeafPicker>::simulator(
+    const MAB& mab,
     const LossFn& loss, 
     LeafPicker lp, 
     int depth_limit
   )
-    : loss_(loss),
+    : mab_(mab), 
+      loss_(loss),
       depth_limit_(depth_limit),
       af_(action_factory{1}),
       lp_(lp),
@@ -270,8 +344,8 @@ namespace simulator
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class LossFn, class LeafPicker>
-  bool simulator<LossFn, LeafPicker>::add_actions(search_node* curr) {
+  template <class MAB, class LossFn, class LeafPicker>
+  bool simulator<MAB, LossFn, LeafPicker>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -322,8 +396,8 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class LossFn, class LeafPicker>
-  void simulator<LossFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
+  template <class MAB, class LossFn, class LeafPicker>
+  void simulator<MAB, LossFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
       search_node* leaf = lp_.pick(curr);
       if (!leaf) {
@@ -334,13 +408,18 @@ namespace simulator
         if (leaf->is_dead_end()) {
           // TODO
         } else if (add_actions(leaf)) {
-          leaf = &(leaf->get_children()[0]);
+          auto& children = leaf->get_children();
+          auto random = util::get_random_int(0, children.size() - 1, MCTS::mt);
+          leaf = &(children[random]);
         } else {
           leaf->set_dead_end();
         } 
       }
       auto rollout_ast = rollout(leaf, depth_limit_, af_);
       double value = 1 - loss_(rollout_ast);
+      if (std::isnan(value) || std::isinf(value)) {
+        value = 0;
+      }
       backprop(value, leaf);
       if (value > thresh_) {
         ast_within_thresh_ = rollout_ast;
@@ -349,18 +428,18 @@ namespace simulator
     }
   }
 
-  template <class LossFn, class LeafPicker>
-  bool simulator<LossFn, LeafPicker>::got_reward_within_thresh() {
+  template <class MAB, class LossFn, class LeafPicker>
+  bool simulator<MAB, LossFn, LeafPicker>::got_reward_within_thresh() {
     return ast_within_thresh_.get();
   }
 
-  template <class LossFn, class LeafPicker>
-  std::shared_ptr<AST> simulator<LossFn, LeafPicker>::get_ast_within_thresh() {
+  template <class MAB, class LossFn, class LeafPicker>
+  std::shared_ptr<AST> simulator<MAB, LossFn, LeafPicker>::get_ast_within_thresh() {
     return ast_within_thresh_;
   }
 
-  template <class LossFn, class LeafPicker>
-  void simulator<LossFn, LeafPicker>::reset() {
+  template <class MAB, class LossFn, class LeafPicker>
+  void simulator<MAB, LossFn, LeafPicker>::reset() {
     ast_within_thresh_ = nullptr;
   }
 

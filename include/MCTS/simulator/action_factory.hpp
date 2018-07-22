@@ -39,9 +39,12 @@ namespace simulator
     if (max_arity >= 2) {
       actions.push_back(std::make_unique<brick::AST::addition_node>());
       actions.push_back(std::make_unique<brick::AST::multiplication_node>());
+      actions.push_back(std::make_unique<brick::AST::division_node>());
+      actions.push_back(std::make_unique<brick::AST::subtraction_node>());
     }
     // unary operators
     if (max_arity >= 1) {
+      actions.push_back(std::make_unique<brick::AST::negate_node>());
     }
     // terminals
     for (int a = 1; a < 3; a++) {

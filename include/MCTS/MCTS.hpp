@@ -76,6 +76,7 @@ class MCTS {
     std::ofstream log_stream_;
     std::shared_ptr<brick::AST::AST> result_ast_;
     simulator::simulator<
+      MAB,
       decltype(bind_loss_fn(loss_, dataset_)),
       LeafPicker
     > simulator_;
@@ -126,7 +127,7 @@ MCTS<MAB, LossFn, LeafPicker>::MCTS(
     log_file_("mcts.log"),
     log_stream_(log_file_),
     result_ast_(nullptr),
-    simulator_(bind_loss_fn(loss_, dataset_), lp, depth_limit)
+    simulator_(mab_, bind_loss_fn(loss_, dataset_), lp, depth_limit)
 { 
   simulator_.add_actions(curr_);
 }
