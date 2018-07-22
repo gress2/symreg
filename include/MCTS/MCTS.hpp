@@ -83,6 +83,7 @@ class MCTS {
     // HELPERS
     void write_game_state(int) const;
     bool game_over();
+    std::shared_ptr<brick::AST::AST> build_result();
   public:
     MCTS(
       int, 
@@ -95,7 +96,6 @@ class MCTS {
     void iterate();
     std::string to_gv() const;
     dataset& get_dataset();
-    std::shared_ptr<brick::AST::AST> build_result();
     void reset();
     std::shared_ptr<brick::AST::AST> get_result();
 };
@@ -223,7 +223,7 @@ dataset& MCTS<MAB, LossFn, LeafPicker>::get_dataset() {
  */
 template <class MAB, class LossFn, class LeafPicker>
 std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::build_result() {
-  return ::symreg::MCTS::simulator::build_ast_upward(curr_);
+  return simulator::build_ast_upward(curr_);
 }
 
 template <class MAB, class LossFn, class LeafPicker>

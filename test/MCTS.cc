@@ -26,7 +26,7 @@ TEST(Iterate, ResultsInValidASTs) {
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
   auto mcts = symreg::MCTS::MCTS(5, 200, ds); 
   mcts.iterate();
-  auto ast = mcts.build_result(); 
+  auto ast = mcts.get_result(); 
   ASSERT_TRUE(ast->is_full());
 }
 
@@ -35,7 +35,7 @@ TEST(Reset, ResultsInRootOnlyState) {
   auto mcts = symreg::MCTS::MCTS(5, 200, ds); 
   mcts.iterate();
   mcts.reset();
-  auto ast = mcts.build_result();
+  auto ast = mcts.get_result();
   ASSERT_TRUE(ast->to_string() == "+");
 }
 

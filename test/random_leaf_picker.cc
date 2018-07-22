@@ -14,13 +14,6 @@ TEST(PickLeaf, ReturnsAValidLeaf) {
 
   auto c1 = lp.pick(&root);
   std::cout << c1->get_ast_node()->to_string() << std::endl;
-  //ASSERT_TRUE(choice == three || choice == x || choice == y);
-  auto c2 = lp.pick(three);
-  std::cout << c2->get_ast_node()->is_number() << std::endl;
-  //ASSERT_TRUE(choice == three);
-  auto c3 = lp.pick(mul);
-  std::cout << c3->get_ast_node()->to_string() << std::endl;
-  //ASSERT_TRUE(choice == x || choice == y);
 }
 
 
