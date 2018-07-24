@@ -44,7 +44,7 @@ namespace simulator
     }
     // unary operators
     if (max_arity >= 1) {
-      actions.push_back(std::make_unique<brick::AST::negate_node>());
+//      actions.push_back(std::make_unique<brick::AST::negate_node>());
     }
     // terminals
     for (int a = 1; a < 3; a++) {

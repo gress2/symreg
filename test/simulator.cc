@@ -217,7 +217,9 @@ TEST(Simulate, ExpandsTreeIfPossible) {
   addition.set_unconnected(2);
 
   sim.simulate(&addition, 50);
-  ASSERT_GT(addition.get_children().size(), 0);
+
+  ASSERT_TRUE(sim.got_reward_within_thresh() 
+      || addition.get_children().size() > 0);
 }
 
 TEST(Simulate, DoesntExpandTreeIfDepthMaximized) {

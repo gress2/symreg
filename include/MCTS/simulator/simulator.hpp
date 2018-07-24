@@ -289,6 +289,12 @@ namespace simulator
     return nterminal;
   }
 
+  using priq_elem_type = std::pair<std::shared_ptr<AST>, double>;
+
+  static auto priq_cmp = [](priq_elem_type lhs, priq_elem_type rhs) {
+    return lhs.second > rhs.second;  
+  };
+
   template <class MAB, class LossFn, class LeafPicker>
   class simulator {
     private:
@@ -299,6 +305,7 @@ namespace simulator
       LeafPicker lp_;
       double thresh_;
       std::shared_ptr<AST> ast_within_thresh_;
+      fixed_priority_queue<priq_elem_type, decltype(priq_cmp), 20> priq_; 
     public:
       simulator(
         const MAB&,
@@ -311,6 +318,7 @@ namespace simulator
       bool got_reward_within_thresh();
       std::shared_ptr<AST> get_ast_within_thresh();
       void reset();
+      std::vector<std::shared_ptr<AST>> dump_pri_q();
   };
 
   template <class MAB, class LossFn, class LeafPicker>
@@ -326,7 +334,8 @@ namespace simulator
       af_(action_factory{1}),
       lp_(lp),
       thresh_(.9),
-      ast_within_thresh_(nullptr)
+      ast_within_thresh_(nullptr),
+      priq_(priq_cmp)
   {}
 
   /**
@@ -421,6 +430,9 @@ namespace simulator
       if (std::isnan(value) || std::isinf(value)) {
         value = 0;
       }
+
+      priq_.push(std::make_pair(rollout_ast, value));
+      
       backprop(value, leaf);
       if (value > thresh_) {
         ast_within_thresh_ = rollout_ast;
@@ -443,6 +455,16 @@ namespace simulator
   void simulator<MAB, LossFn, LeafPicker>::reset() {
     ast_within_thresh_ = nullptr;
   }
+
+  template <class MAB, class LossFn, class LeafPicker>
+  std::vector<std::shared_ptr<AST>> simulator<MAB, LossFn, LeafPicker>::dump_pri_q() {
+    std::vector<std::shared_ptr<AST>> vec;
+    auto pair_ary = priq_.dump();
+    for (auto& pair : pair_ary) {
+      vec.push_back(pair.first);
+    }
+    return vec;
+  } 
 
 }
 }

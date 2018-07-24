@@ -18,10 +18,10 @@ TEST(ChooseMove, ChoosesCorrectNodes) {
   child = &(parent.get_children().back());
   child->set_n(5);
   child->set_v(6);
-  auto choice = symreg::MCTS::choose_move(&parent);
+  auto choice = symreg::MCTS::choose_move(&parent, 0);
   ASSERT_TRUE(choice == &(parent.get_children()[1]));
   child->set_n(500);
-  choice = symreg::MCTS::choose_move(&parent);
+  choice = symreg::MCTS::choose_move(&parent, 0);
   ASSERT_TRUE(choice == &(parent.get_children()[2]));
 }
 

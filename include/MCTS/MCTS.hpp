@@ -39,10 +39,19 @@ using AST = brick::AST::AST;
  * @return a pointer to the child of a search node with highest UCB1 value
  * if children exist, a nullptr otherwise.
  */
-search_node* choose_move(search_node* node) {
+search_node* choose_move(search_node* node, double terminal_thresh) {
   std::vector<search_node*> moves;
+  std::vector<search_node*> weak_terminals;
   double max = -std::numeric_limits<double>::infinity();
   for (auto& child : node->get_children()) {
+
+    if (child.get_ast_node()->is_terminal()) {
+      if (child.get_v() < terminal_thresh) {
+        weak_terminals.push_back(&child);
+        continue;
+      }
+    }
+
     auto n = child.get_n();
     if (n > max) {
       max = n;
@@ -52,6 +61,21 @@ search_node* choose_move(search_node* node) {
       moves.push_back(&child);
     }
   }
+  // this just assures that we always end up with a valid AST
+  // from move making
+  if (moves.empty()) {
+    for (auto term : weak_terminals) {
+      auto n = term->get_n();
+      if (n > max) {
+        max = n;
+        moves.clear();
+        moves.push_back(term);
+      } else if (n == max) {
+        moves.push_back(term);
+      } 
+    }
+  }
+
   auto random = util::get_random_int(0, moves.size() - 1, MCTS::mt);
   return moves[random];
 }
@@ -75,6 +99,7 @@ class MCTS {
     const std::string log_file_;
     std::ofstream log_stream_;
     std::shared_ptr<brick::AST::AST> result_ast_;
+    double terminal_thresh_ = .999;
     simulator::simulator<
       MAB,
       decltype(bind_loss_fn(loss_, dataset_)),
@@ -98,6 +123,7 @@ class MCTS {
     dataset& get_dataset();
     void reset();
     std::shared_ptr<brick::AST::AST> get_result();
+    std::vector<std::shared_ptr<brick::AST::AST>> get_top_n_asts();
 };
 
 
@@ -158,7 +184,7 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
     }
 
     search_node* prev = curr_;
-    curr_ = choose_move(curr_);
+    curr_ = choose_move(curr_, terminal_thresh_);
     #if LOG_LEVEL > 0
     log_stream_ << "Iteration: " << i << std::endl;
     write_game_state(i);
@@ -247,6 +273,12 @@ void MCTS<MAB, LossFn, LeafPicker>::reset() {
   curr_ = &root_;
   result_ast_ = nullptr;
   simulator_.reset();
+}
+
+template <class MAB, class LossFn, class LeafPicker>
+std::vector<std::shared_ptr<brick::AST::AST>> 
+  MCTS<MAB, LossFn, LeafPicker>::get_top_n_asts() {
+  return simulator_.dump_pri_q();
 }
   
 }
