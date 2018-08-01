@@ -1,14 +1,12 @@
-#ifndef SYMREG_MCTS_LAMBDA_LIB_HPP_
-#define SYMREG_MCTS_LAMBDA_LIB_HPP_
+#ifndef SYMREG_MCTS_LOSS_FUNCTIONS_HPP_
+#define SYMREG_MCTS_LOSS_FUNCTIONS_HPP_
 
 namespace symreg
 {
 namespace MCTS
 {
-
-static auto UCB1 = [](double child_val, int child_n, int parent_n) { 
-  return child_val + sqrt(2 * log(parent_n) / child_n); 
-};
+namespace loss
+{
 
 static auto MSE = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
   double sum = 0;
@@ -28,6 +26,16 @@ static auto NRMSD = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
   return nrmsd;
 };
 
+static auto MAPE = [](dataset& ds, std::shared_ptr<brick::AST::AST>& ast) {
+  double sum = 0;
+  for (std::size_t i = 0; i < ds.x.size(); i++) {
+    double y_hat = ast->eval(ds.x[i]);
+    sum += (y_hat + ds.y[i] == 0) ? 0 : std::abs((ds.y[i] - y_hat) / (ds.y[i] + y_hat)); 
+  }
+  sum /= ds.x.size();
+  return sum;
+};
+
 template <typename LossFn>
 auto bind_loss_fn(LossFn& loss, dataset& ds) {
   return [&] (std::shared_ptr<brick::AST::AST> ast) {
@@ -35,6 +43,8 @@ auto bind_loss_fn(LossFn& loss, dataset& ds) {
   }; 
 }
 
+
+}
 }
 }
 

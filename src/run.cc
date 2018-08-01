@@ -22,15 +22,15 @@ void replaceAll(std::string& str, const std::string& from, const std::string& to
 
 int main() {
   symreg::dataset ds = symreg::generate_dataset(
-    [](double x) { return x*x+x*x*x*x; },
+    [](double x) { return x*x*x+x*x+x; },
     100,
     0,
     200
   );
 
-  auto leaf_picker = symreg::MCTS::simulator::recursive_heuristic_child_picker(symreg::MCTS::UCB1);
+  auto leaf_picker = symreg::MCTS::simulator::recursive_heuristic_child_picker(symreg::MCTS::score::UCB1);
 
-  symreg::MCTS::MCTS mcts{16, 5000, ds, symreg::MCTS::UCB1, symreg::MCTS::NRMSD, leaf_picker};
+  symreg::MCTS::MCTS mcts{8, 5000, ds, symreg::MCTS::score::UCB1, symreg::MCTS::loss::MAPE, leaf_picker};
 
   auto num_runs = 1;
   for (int i = 0; i < num_runs; i++) {
@@ -40,7 +40,7 @@ int main() {
       std::string ast_str = ast->to_string();
       replaceAll(ast_str, "_x0", "x");
       std::cout << ast_str << std::endl;
-      std::cout << (1 - symreg::MCTS::NRMSD(ds, ast)) << std::endl;
+      std::cout << (1 - symreg::MCTS::loss::MAPE(ds, ast)) << std::endl;
     }
     mcts.reset();
   }

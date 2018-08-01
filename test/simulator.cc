@@ -133,11 +133,11 @@ TEST(Rollout, ResultsInValidAST) {
 }
 
 TEST(AddActions, AddsNoActionsIfNoAvailableUpLinks) {
-  auto mab = symreg::MCTS::UCB1;
+  auto mab = symreg::MCTS::score::UCB1;
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::bind_loss_fn(symreg::MCTS::NRMSD, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
 
   symreg::MCTS::simulator::simulator sim(mab, loss, lp, 4);
@@ -151,11 +151,11 @@ TEST(AddActions, AddsNoActionsIfNoAvailableUpLinks) {
 }
 
 TEST(AddActions, AddsActionsAccordingToDepthLimit1) {
-  auto mab = symreg::MCTS::UCB1;
+  auto mab = symreg::MCTS::score::UCB1;
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::bind_loss_fn(symreg::MCTS::NRMSD, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
 
   symreg::MCTS::simulator::simulator sim(mab, loss, lp, 4);
@@ -175,11 +175,11 @@ TEST(AddActions, AddsActionsAccordingToDepthLimit1) {
 }
 
 TEST(AddActions, AddsActionsAccordingToDepthLimit2) {
-  auto mab = symreg::MCTS::UCB1;
+  auto mab = symreg::MCTS::score::UCB1;
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::bind_loss_fn(symreg::MCTS::NRMSD, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
 
   symreg::MCTS::simulator::simulator sim(mab, loss, lp, 9);
@@ -198,11 +198,11 @@ TEST(AddActions, AddsActionsAccordingToDepthLimit2) {
 }
 
 TEST(Simulate, ExpandsTreeIfPossible) {
-  auto mab = symreg::MCTS::UCB1;
+  auto mab = symreg::MCTS::score::UCB1;
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::bind_loss_fn(symreg::MCTS::NRMSD, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
 
   symreg::MCTS::simulator::simulator sim(mab, loss, lp, 9);
@@ -223,11 +223,11 @@ TEST(Simulate, ExpandsTreeIfPossible) {
 }
 
 TEST(Simulate, DoesntExpandTreeIfDepthMaximized) {
-  auto mab = symreg::MCTS::UCB1;
+  auto mab = symreg::MCTS::score::UCB1;
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::bind_loss_fn(symreg::MCTS::NRMSD, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
 
   symreg::MCTS::simulator::simulator sim(mab, loss, lp, 2);

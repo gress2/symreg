@@ -291,8 +291,12 @@ namespace simulator
 
   using priq_elem_type = std::pair<std::shared_ptr<AST>, double>;
 
-  static auto priq_cmp = [](priq_elem_type lhs, priq_elem_type rhs) {
+  static auto priq_cmp = [](const priq_elem_type& lhs, const priq_elem_type& rhs) {
     return lhs.second > rhs.second;  
+  };
+
+  static auto priq_elem_sign = [](const priq_elem_type& elem) {
+    return elem.second;
   };
 
   template <class MAB, class LossFn, class LeafPicker>
@@ -305,7 +309,8 @@ namespace simulator
       LeafPicker lp_;
       double thresh_;
       std::shared_ptr<AST> ast_within_thresh_;
-      fixed_priority_queue<priq_elem_type, decltype(priq_cmp), 20> priq_; 
+      fixed_priority_queue<priq_elem_type, 
+        decltype(priq_cmp), decltype(priq_elem_sign), 20> priq_; 
     public:
       simulator(
         const MAB&,
@@ -333,9 +338,9 @@ namespace simulator
       depth_limit_(depth_limit),
       af_(action_factory{1}),
       lp_(lp),
-      thresh_(.9),
+      thresh_(.999),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp)
+      priq_(priq_cmp, priq_elem_sign)
   {}
 
   /**

@@ -15,7 +15,8 @@
 #include "dataset.hpp"
 #include "MCTS/mt.hpp"
 #include "MCTS/search_node.hpp"
-#include "MCTS/lambda_lib.hpp"
+#include "MCTS/score_functions.hpp"
+#include "MCTS/loss_functions.hpp"
 #include "MCTS/util.hpp"
 #include "MCTS/simulator/simulator.hpp"
 
@@ -81,8 +82,8 @@ search_node* choose_move(search_node* node, double terminal_thresh) {
 }
 
 template <
-  class MAB = decltype(UCB1), 
-  class LossFn = decltype(NRMSD),
+  class MAB = decltype(score::UCB1), 
+  class LossFn = decltype(loss::NRMSD),
   class LeafPicker = simulator::recursive_random_child_picker
 >
 class MCTS {
@@ -114,8 +115,8 @@ class MCTS {
       int, 
       int, 
       dataset, 
-      const MAB& = UCB1, 
-      const LossFn& = NRMSD, 
+      const MAB& = score::UCB1, 
+      const LossFn& = loss::NRMSD, 
       LeafPicker = simulator::recursive_random_child_picker() 
     );
     void iterate();
