@@ -24,13 +24,13 @@ int main() {
   symreg::dataset ds = symreg::generate_dataset(
     [](double x) { return x*x*x+x*x+x; },
     100,
-    0,
-    200
+    -100,
+    100
   );
 
   auto leaf_picker = symreg::MCTS::simulator::recursive_heuristic_child_picker(symreg::MCTS::score::UCB1);
 
-  symreg::MCTS::MCTS mcts{8, 5000, ds, symreg::MCTS::score::UCB1, symreg::MCTS::loss::MAPE, leaf_picker};
+  symreg::MCTS::MCTS mcts{8, 1000, ds, symreg::MCTS::score::UCB1, symreg::MCTS::loss::MAPE, leaf_picker};
 
   auto num_runs = 1;
   for (int i = 0; i < num_runs; i++) {

@@ -47,7 +47,7 @@ namespace simulator
 //      actions.push_back(std::make_unique<brick::AST::negate_node>());
     }
     // terminals
-    for (int a = 1; a < 3; a++) {
+    for (int a = 1; a < 4; a++) {
       actions.push_back(std::make_unique<brick::AST::number_node>(a));
     }
 

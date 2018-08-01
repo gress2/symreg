@@ -220,6 +220,13 @@ namespace simulator
     }
   }
 
+  void increase_visit_upward(int value, search_node* curr) {
+    while (curr) {
+      curr->set_n(curr->get_n() + value);
+      curr = curr->get_parent();
+    }
+  }
+
   template <class F, class TN, class TV, class... Args>
   constexpr TN compute_tipping_point(
     F&& function,
@@ -288,6 +295,39 @@ namespace simulator
 
     return nterminal;
   }
+
+  template <class MAB>
+  search_node* get_second_highest(search_node* node, MAB& mab) {
+    search_node* parent = node->get_parent();
+    search_node* second_highest = nullptr;
+    double max_score = -1; 
+    for (auto& child : parent->get_children()) {
+      if (&child == node) {
+        continue;
+      }
+      auto score = mab(child.get_v(), child.get_n(), parent->get_n());
+      if (score > max_score) {
+        max_score = score;
+        second_highest = &child;
+      }
+    } 
+    return second_highest;
+  }
+
+  template <class MAB>
+  void inflate_visit_count(search_node* node, MAB& mab) {
+    search_node* second_highest = get_second_highest(node, mab);
+    if (second_highest) {
+      auto tipping_point = compute_tipping_point(
+          mab, node->get_v(), node->get_n(), second_highest->get_v(),
+          second_highest->get_n(), node->get_parent()->get_n()
+      ); 
+      int inflate_value = tipping_point - node->get_n();
+      increase_visit_upward(inflate_value == 0 ? 1 : inflate_value, node);
+    } else {
+      std::cout << "Something weird happened." << std::endl;
+    }
+  } 
 
   using priq_elem_type = std::pair<std::shared_ptr<AST>, double>;
 
@@ -421,7 +461,8 @@ namespace simulator
 
       if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
-          // TODO
+          inflate_visit_count(leaf, mab_);
+          continue;
         } else if (add_actions(leaf)) {
           auto& children = leaf->get_children();
           auto random = util::get_random_int(0, children.size() - 1, MCTS::mt);
