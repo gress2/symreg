@@ -38,4 +38,6 @@ if (symreg_tests)
   add_subdirectory("./test")
 endif()
 
+add_subdirectory("./deps/dlib")
+
 add_subdirectory("./src")
