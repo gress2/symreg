@@ -213,9 +213,9 @@ namespace simulator
    */
   void backprop(double value, search_node* curr) {
     while (curr) {
-      curr->set_v((curr->get_v() * curr->get_n() + value) / (curr->get_n() + 1)); 
+      curr->set_q((curr->get_q() * curr->get_n() + value) / (curr->get_n() + 1)); 
       curr->set_n(curr->get_n() + 1);
-      value = curr->get_v();
+      value = curr->get_q();
       curr = curr->get_parent();
     }
   }
@@ -305,7 +305,7 @@ namespace simulator
       if (&child == node) {
         continue;
       }
-      auto score = mab(child.get_v(), child.get_n(), parent->get_n());
+      auto score = mab(child.get_q(), child.get_n(), parent->get_n());
       if (score > max_score) {
         max_score = score;
         second_highest = &child;
@@ -319,7 +319,7 @@ namespace simulator
     search_node* second_highest = get_second_highest(node, mab);
     if (second_highest) {
       auto tipping_point = compute_tipping_point(
-          mab, node->get_v(), node->get_n(), second_highest->get_v(),
+          mab, node->get_q(), node->get_n(), second_highest->get_q(),
           second_highest->get_n(), node->get_parent()->get_n()
       ); 
       int inflate_value = tipping_point - node->get_n();

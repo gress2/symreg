@@ -41,7 +41,7 @@ search_node* recursive_heuristic_child_picker<Heuristic>::max_heuristic_node(sea
       moves.push_back(&child);
       continue;
     }
-    double score = h_(child.get_v(), child.get_n(), node->get_n());
+    double score = h_(child.get_q(), child.get_n(), node->get_n());
     if (score > max) {
       max = score;
       moves.clear();

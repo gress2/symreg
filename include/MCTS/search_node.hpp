@@ -17,7 +17,8 @@ namespace symreg
     private:
       // MEMBERS
       int n_;
-      double v_;
+      double q_;
+      double p_;
       int depth_;
       int unconnected_;
       std::unique_ptr<brick::AST::node> ast_node_;
@@ -37,7 +38,8 @@ namespace symreg
       void add_child(search_node&&);
       void set_scorer(std::function<double(double, int, int)>);
       void set_n(int);
-      void set_v(double);
+      void set_q(double);
+      void set_p(double);
       void set_depth(int);
       void set_unconnected(int);
       void set_dead_end();
@@ -46,7 +48,8 @@ namespace symreg
       std::vector<search_node>& get_children();
       bool is_leaf_node() const;
       int get_n() const;
-      double get_v() const;
+      double get_q() const;
+      double get_p() const;
       int get_depth() const;
       int get_unconnected() const;
       search_node* get_parent();
@@ -68,7 +71,7 @@ namespace symreg
      */
     search_node::search_node(std::unique_ptr<brick::AST::node>&& ast_node)
       : n_(0), 
-        v_(0), 
+        q_(0), 
         depth_(0),
         unconnected_(1),
         ast_node_(std::move(ast_node)), 
@@ -86,7 +89,7 @@ namespace symreg
      */
     search_node::search_node(search_node&& other)
       : n_(other.n_),
-        v_(other.v_),
+        q_(other.q_),
         depth_(other.depth_),
         unconnected_(other.unconnected_),
         ast_node_(std::move(other.ast_node_)),
@@ -145,11 +148,15 @@ namespace symreg
     }
 
     /**
-     * @brief a setter for v (a node's value)
+     * @brief a setter for q (a node's value)
      * @param val the value which we wish to sit this nodes value to
      */
-    void search_node::set_v(double val) {
-      v_ = val;
+    void search_node::set_q(double val) {
+      q_ = val;
+    }
+
+    void search_node::set_p(double val) {
+      p_ = val;
     }
 
     /**
@@ -191,7 +198,7 @@ namespace symreg
       auto node_id = ast_node_->get_node_id();
       auto shape = ast_node_->is_terminal() ? "doublecircle" : "circle";
       ss << "  " << node_id << " [label=\"" << ast_node_->get_gv_label() 
-        << "\nn: " << n_ << ", " << "\nv: " << v_ << "\", " << "shape=" << shape << "]" << std::endl;
+        << "\nn: " << n_ << ", " << "\nq: " << q_ << "\", " << "shape=" << shape << "]" << std::endl;
       if (up_link_) {
         ss << "  " << node_id << " -> " << up_link_->ast_node_->get_node_id() << " [arrowhead=crow,color=blue]" << std::endl;
       }
@@ -230,13 +237,17 @@ namespace symreg
 
 
     /**
-     * @brief a getter for v (a node's value)
-     * @return v -- a double
+     * @brief a getter for q (a node's value)
+     * @return q -- a double
      */
-    double search_node::get_v() const {
-      return v_;
+    double search_node::get_q() const {
+      return q_;
     }
 
+
+    double search_node::get_p() const {
+      return p_;
+    }
 
     /**
      * @brief a getter for the AST depth of this search node

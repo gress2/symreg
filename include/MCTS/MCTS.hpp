@@ -47,7 +47,7 @@ search_node* choose_move(search_node* node, double terminal_thresh) {
   for (auto& child : node->get_children()) {
 
     if (child.get_ast_node()->is_terminal()) {
-      if (child.get_v() < terminal_thresh) {
+      if (child.get_q() < terminal_thresh) {
         weak_terminals.push_back(&child);
         continue;
       }
@@ -269,7 +269,7 @@ std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::get_result() {
 template <class MAB, class LossFn, class LeafPicker>
 void MCTS<MAB, LossFn, LeafPicker>::reset() {
   root_.get_children().clear();
-  root_.set_v(0);
+  root_.set_q(0);
   root_.set_n(0);
   curr_ = &root_;
   result_ast_ = nullptr;
