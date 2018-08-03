@@ -3,20 +3,33 @@
 
 #include <iostream>
 #include <dlib/dnn.h>
+#include "training_example.hpp"
 
 namespace symreg
 {
-  using values_type = std::vector<double>;
-  using policy_type = std::vector<double>;
-  
-  class DNN {
-    private:
 
-    public:
-      std::pair<values_type, policy_type> operator()(std::vector<int>&& state) {
-        return std::make_pair(values_type{}, policy_type{});
-      } 
-  };
+using values_type = std::vector<double>;
+using policy_type = std::vector<double>;
+
+class DNN {
+  private:
+
+  public:
+    template <class State>
+    std::pair<values_type, policy_type> operator()(State&&); 
+    void train(training_examples&);
+};
+
+template <class State>
+std::pair<values_type, policy_type> DNN::operator()(State&& state) {
+  return std::make_pair(values_type{}, policy_type{});
+}
+
+void DNN::train(training_examples& examples) {
+
+}
+
+
 }
 
 #endif

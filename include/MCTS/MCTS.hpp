@@ -13,6 +13,7 @@
 
 #include "brick.hpp"
 #include "dataset.hpp"
+#include "training_example.hpp"
 #include "MCTS/mt.hpp"
 #include "MCTS/search_node.hpp"
 #include "MCTS/score_functions.hpp"
@@ -106,10 +107,11 @@ class MCTS {
       decltype(bind_loss_fn(loss_, dataset_)),
       LeafPicker
     > simulator_;
+    training_examples examples_;
     // HELPERS
     void write_game_state(int) const;
     bool game_over();
-    std::shared_ptr<brick::AST::AST> build_result();
+    std::shared_ptr<brick::AST::AST> build_current_ast();
   public:
     MCTS(
       int, 
@@ -125,6 +127,7 @@ class MCTS {
     void reset();
     std::shared_ptr<brick::AST::AST> get_result();
     std::vector<std::shared_ptr<brick::AST::AST>> get_top_n_asts();
+    training_examples get_training_examples() const;
 };
 
 
@@ -185,6 +188,7 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
     }
 
     search_node* prev = curr_;
+    examples_.push_back(training_example{build_current_ast()->to_string(), curr_->get_pi(), 0});
     curr_ = choose_move(curr_, terminal_thresh_);
     #if LOG_LEVEL > 0
     log_stream_ << "Iteration: " << i << std::endl;
@@ -196,6 +200,13 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
     }
     i++;
   }
+  // assign rewards to examples
+  auto final_ast = get_result();
+  auto final_reward = loss_(dataset_, final_ast); 
+  for (auto& ex : examples_) {
+    ex.reward = final_reward;
+  }
+
 }
 
 /**
@@ -249,7 +260,7 @@ dataset& MCTS<MAB, LossFn, LeafPicker>::get_dataset() {
  * @return a shared pointer to an AST
  */
 template <class MAB, class LossFn, class LeafPicker>
-std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::build_result() {
+std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::build_current_ast() {
   return simulator::build_ast_upward(curr_);
 }
 
@@ -258,7 +269,7 @@ std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::get_result() {
   if (result_ast_) {
     return result_ast_;
   } else {
-    return build_result();
+    return build_current_ast();
   }
 }
 
@@ -280,6 +291,11 @@ template <class MAB, class LossFn, class LeafPicker>
 std::vector<std::shared_ptr<brick::AST::AST>> 
   MCTS<MAB, LossFn, LeafPicker>::get_top_n_asts() {
   return simulator_.dump_pri_q();
+}
+
+template <class MAB, class LossFn, class LeafPicker>
+training_examples MCTS<MAB, LossFn, LeafPicker>::get_training_examples() const {
+  return examples_;
 }
   
 }

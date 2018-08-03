@@ -50,6 +50,7 @@ namespace symreg
       int get_n() const;
       double get_q() const;
       double get_p() const;
+      std::vector<double> get_pi() const;
       int get_depth() const;
       int get_unconnected() const;
       search_node* get_parent();
@@ -247,6 +248,14 @@ namespace symreg
 
     double search_node::get_p() const {
       return p_;
+    }
+
+    std::vector<double> search_node::get_pi() const {
+      std::vector<double> pi;
+      for (auto& child : children_) {
+        pi.push_back(child.get_n() / n_);
+      }
+      return pi;
     }
 
     /**
