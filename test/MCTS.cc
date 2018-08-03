@@ -26,16 +26,26 @@ TEST(ChooseMove, ChoosesCorrectNodes) {
 }
 
 TEST(Iterate, ResultsInValidASTs) {
+  auto mab = symreg::MCTS::score::UCB1;
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
-  auto mcts = symreg::MCTS::MCTS(5, 200, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
+  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
+  symreg::MCTS::simulator::simulator sim(mab, loss, lp, 5);
+
+  auto mcts = symreg::MCTS::MCTS(200, ds, sim); 
   mcts.iterate();
   auto ast = mcts.get_result(); 
   ASSERT_TRUE(ast->is_full());
 }
 
 TEST(Reset, ResultsInRootOnlyState) {
+  auto mab = symreg::MCTS::score::UCB1;
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
-  auto mcts = symreg::MCTS::MCTS(5, 200, ds); 
+  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
+  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
+  symreg::MCTS::simulator::simulator sim(mab, loss, lp, 5);
+
+  auto mcts = symreg::MCTS::MCTS(200, ds, sim); 
   mcts.iterate();
   mcts.reset();
   auto ast = mcts.get_result();

@@ -82,11 +82,7 @@ search_node* choose_move(search_node* node, double terminal_thresh) {
   return moves[random];
 }
 
-template <
-  class MAB = decltype(score::UCB1), 
-  class LossFn = decltype(loss::NRMSD),
-  class LeafPicker = simulator::recursive_random_child_picker
->
+template <class Simulator>
 class MCTS {
   private:
     // STATIC MEMBERS
@@ -96,17 +92,11 @@ class MCTS {
     dataset dataset_; 
     search_node root_;
     search_node* curr_;
-    MAB mab_;
-    LossFn loss_;
     const std::string log_file_;
     std::ofstream log_stream_;
     std::shared_ptr<brick::AST::AST> result_ast_;
     double terminal_thresh_ = .999;
-    simulator::simulator<
-      MAB,
-      decltype(bind_loss_fn(loss_, dataset_)),
-      LeafPicker
-    > simulator_;
+    Simulator simulator_;
     training_examples examples_;
     // HELPERS
     void write_game_state(int) const;
@@ -115,11 +105,8 @@ class MCTS {
   public:
     MCTS(
       int, 
-      int, 
-      dataset, 
-      const MAB& = score::UCB1, 
-      const LossFn& = loss::NRMSD, 
-      LeafPicker = simulator::recursive_random_child_picker() 
+      dataset,
+      Simulator
     );
     void iterate();
     std::string to_gv() const;
@@ -139,25 +126,20 @@ class MCTS {
  * The curr_ pointer is initialized to point at this search node.
  * Additionally, the classes random number generator instance is seeded.
  */
-template <class MAB, class LossFn, class LeafPicker>
-MCTS<MAB, LossFn, LeafPicker>::MCTS(
-    int depth_limit,
+template <class Simulator>
+MCTS<Simulator>::MCTS(
     int num_simulations,
-    dataset ds, 
-    const MAB& mab, 
-    const LossFn& loss,
-    LeafPicker lp
+    dataset ds,
+    Simulator simulator
 )
   : num_simulations_(num_simulations),
     dataset_(ds), 
     root_(search_node(std::make_unique<brick::AST::posit_node>())),
     curr_(&root_),
-    mab_(mab),
-    loss_(loss),
     log_file_("mcts.log"),
     log_stream_(log_file_),
     result_ast_(nullptr),
-    simulator_(mab_, bind_loss_fn(loss_, dataset_), lp, depth_limit)
+    simulator_(simulator)
 { 
   simulator_.add_actions(curr_);
 }
@@ -173,8 +155,8 @@ MCTS<MAB, LossFn, LeafPicker>::MCTS(
  * 
  * @param n number determining how many time we wish to loop
  */
-template <class MAB, class LossFn, class LeafPicker>
-void MCTS<MAB, LossFn, LeafPicker>::iterate() {
+template <class Simulator>
+void MCTS<Simulator>::iterate() {
   std::size_t i = 0;
   while (true) {
     if (game_over()) {
@@ -202,7 +184,7 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
   }
   // assign rewards to examples
   auto final_ast = get_result();
-  auto final_reward = loss_(dataset_, final_ast); 
+  auto final_reward = 3; 
   for (auto& ex : examples_) {
     ex.reward = final_reward;
   }
@@ -213,8 +195,8 @@ void MCTS<MAB, LossFn, LeafPicker>::iterate() {
  * @brief writes the MCTS tree as a gv to file
  * @param iteration an integer which determines the name of the gv file
  */
-template <class MAB, class LossFn, class LeafPicker>
-void MCTS<MAB, LossFn, LeafPicker>::write_game_state(int iteration) const {
+template <class Simulator>
+void MCTS<Simulator>::write_game_state(int iteration) const {
   std::ofstream out_file(std::to_string(iteration) + ".gv");
   out_file << to_gv() << std::endl;
 }
@@ -223,8 +205,8 @@ void MCTS<MAB, LossFn, LeafPicker>::write_game_state(int iteration) const {
  * @brief a check to determine whether or not more simulation is possible
  * given the current move
  */
-template <class MAB, class LossFn, class LeafPicker>
-bool MCTS<MAB, LossFn, LeafPicker>::game_over() {
+template <class Simulator>
+bool MCTS<Simulator>::game_over() {
   return curr_->is_dead_end();
 }
 
@@ -234,8 +216,8 @@ bool MCTS<MAB, LossFn, LeafPicker>::game_over() {
  *
  * @return the graph viz string representation
  */
-template <class MAB, class LossFn, class LeafPicker>
-std::string MCTS<MAB, LossFn, LeafPicker>::to_gv() const {
+template <class Simulator>
+std::string MCTS<Simulator>::to_gv() const {
   std::stringstream ss;
   ss << "digraph {" << std::endl;
   ss << root_.to_gv();
@@ -248,8 +230,8 @@ std::string MCTS<MAB, LossFn, LeafPicker>::to_gv() const {
  *
  * @return a non-const reference to the MCTS class' symbol table
  */
-template <class MAB, class LossFn, class LeafPicker>
-dataset& MCTS<MAB, LossFn, LeafPicker>::get_dataset() {
+template <class Simulator>
+dataset& MCTS<Simulator>::get_dataset() {
   return dataset_;
 }
 
@@ -259,13 +241,13 @@ dataset& MCTS<MAB, LossFn, LeafPicker>::get_dataset() {
  *
  * @return a shared pointer to an AST
  */
-template <class MAB, class LossFn, class LeafPicker>
-std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::build_current_ast() {
+template <class Simulator>
+std::shared_ptr<brick::AST::AST> MCTS<Simulator>::build_current_ast() {
   return simulator::build_ast_upward(curr_);
 }
 
-template <class MAB, class LossFn, class LeafPicker>
-std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::get_result() {
+template <class Simulator>
+std::shared_ptr<brick::AST::AST> MCTS<Simulator>::get_result() {
   if (result_ast_) {
     return result_ast_;
   } else {
@@ -277,8 +259,8 @@ std::shared_ptr<brick::AST::AST> MCTS<MAB, LossFn, LeafPicker>::get_result() {
  * @brief Resets the state of the MCTS search, allowing the next
  * iterate call to operate from a blank slate
  */
-template <class MAB, class LossFn, class LeafPicker>
-void MCTS<MAB, LossFn, LeafPicker>::reset() {
+template <class Simulator>
+void MCTS<Simulator>::reset() {
   root_.get_children().clear();
   root_.set_q(0);
   root_.set_n(0);
@@ -287,14 +269,14 @@ void MCTS<MAB, LossFn, LeafPicker>::reset() {
   simulator_.reset();
 }
 
-template <class MAB, class LossFn, class LeafPicker>
+template <class Simulator>
 std::vector<std::shared_ptr<brick::AST::AST>> 
-  MCTS<MAB, LossFn, LeafPicker>::get_top_n_asts() {
+  MCTS<Simulator>::get_top_n_asts() {
   return simulator_.dump_pri_q();
 }
 
-template <class MAB, class LossFn, class LeafPicker>
-training_examples MCTS<MAB, LossFn, LeafPicker>::get_training_examples() const {
+template <class Simulator>
+training_examples MCTS<Simulator>::get_training_examples() const {
   return examples_;
 }
   

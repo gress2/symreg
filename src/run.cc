@@ -28,21 +28,23 @@ int main() {
     100
   );
 
-  auto leaf_picker = symreg::MCTS::simulator::recursive_heuristic_child_picker(symreg::MCTS::score::UCB1);
+  using namespace symreg::MCTS;
 
-  symreg::MCTS::MCTS mcts{8, 1000, ds, symreg::MCTS::score::UCB1, symreg::MCTS::loss::MAPE, leaf_picker};
+  simulator::simulator sim(
+      score::UCB1,
+      loss::bind_loss_fn(loss::MAPE, ds),
+      simulator::recursive_heuristic_child_picker{score::UCB1},
+      10
+  );
 
-  auto num_runs = 1;
-  for (int i = 0; i < num_runs; i++) {
-    mcts.iterate();
-    auto top_n = mcts.get_top_n_asts();
-    for (auto& ast : top_n) {
-      std::string ast_str = ast->to_string();
-      replaceAll(ast_str, "_x0", "x");
-      std::cout << ast_str << std::endl;
-      std::cout << (1 - symreg::MCTS::loss::MAPE(ds, ast)) << std::endl;
-    }
-    mcts.reset();
+  MCTS mcts(1000, ds, sim);
+  mcts.iterate();
+  auto top_n = mcts.get_top_n_asts();
+  for (auto& ast : top_n) {
+    std::string ast_str = ast->to_string();
+    replaceAll(ast_str, "_x0", "x");
+    std::cout << ast_str << std::endl;
+    std::cout << (1 - symreg::MCTS::loss::MAPE(ds, ast)) << std::endl;
   }
 
   return 0;
