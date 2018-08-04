@@ -9,15 +9,15 @@ TEST(ChooseMove, ChoosesCorrectNodes) {
   parent.add_child(std::make_unique<brick::AST::number_node>(1));
   auto* child = &(parent.get_children().back());
   child->set_n(1);
-  child->set_v(14);
+  child->set_q(14);
   parent.add_child(std::make_unique<brick::AST::number_node>(2));
   child = &(parent.get_children().back());
   child->set_n(300);
-  child->set_v(400);
+  child->set_q(400);
   parent.add_child(std::make_unique<brick::AST::number_node>(3));
   child = &(parent.get_children().back());
   child->set_n(5);
-  child->set_v(6);
+  child->set_q(6);
   auto choice = symreg::MCTS::choose_move(&parent, 0);
   ASSERT_TRUE(choice == &(parent.get_children()[1]));
   child->set_n(500);
@@ -30,7 +30,8 @@ TEST(Iterate, ResultsInValidASTs) {
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
   auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, 5);
+  auto af = symreg::MCTS::simulator::action_factory(1);
+  symreg::MCTS::simulator::simulator sim(mab, loss, lp, af, 5);
 
   auto mcts = symreg::MCTS::MCTS(200, ds, sim); 
   mcts.iterate();
@@ -43,7 +44,8 @@ TEST(Reset, ResultsInRootOnlyState) {
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
   auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
   auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, 5);
+  auto af = symreg::MCTS::simulator::action_factory(1);
+  symreg::MCTS::simulator::simulator sim(mab, loss, lp, af, 5);
 
   auto mcts = symreg::MCTS::MCTS(200, ds, sim); 
   mcts.iterate();

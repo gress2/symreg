@@ -13,15 +13,21 @@ using policy_type = std::vector<double>;
 
 class DNN {
   private:
-
+    int policy_dim_;
   public:
+    DNN(int);
     template <class State>
     std::pair<values_type, policy_type> operator()(State&&); 
     void train(training_examples&);
 };
 
+DNN::DNN(int policy_dim)
+ : policy_dim_(policy_dim)
+{}
+
 template <class State>
 std::pair<values_type, policy_type> DNN::operator()(State&& state) {
+
   return std::make_pair(values_type{}, policy_type{});
 }
 

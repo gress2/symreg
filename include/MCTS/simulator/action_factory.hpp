@@ -14,8 +14,9 @@ namespace simulator
       int num_dims_;
     public:
       action_factory(int);
-      std::vector<std::unique_ptr<brick::AST::node>> get_set(int);
-      std::unique_ptr<brick::AST::node> get_random(int);
+      std::vector<std::unique_ptr<brick::AST::node>> get_set(int) const;
+      std::unique_ptr<brick::AST::node> get_random(int) const;
+      int max_set_size() const;
   }; 
 
   action_factory::action_factory(int num_dims) 
@@ -33,7 +34,7 @@ namespace simulator
    * of children the nodes support
    * @return a vector of unique pointers for all possible node types
    */
-  std::vector<std::unique_ptr<brick::AST::node>> action_factory::get_set(int max_arity) {
+  std::vector<std::unique_ptr<brick::AST::node>> action_factory::get_set(int max_arity) const {
     std::vector<std::unique_ptr<brick::AST::node>> actions;
     // binary operators
     if (max_arity >= 2) {
@@ -67,10 +68,14 @@ namespace simulator
    * of children the node type may support 
    * @return a unique pointer to a randomly chosen node type
    */
-  std::unique_ptr<brick::AST::node> action_factory::get_random(int max_arity) {
+  std::unique_ptr<brick::AST::node> action_factory::get_random(int max_arity) const {
     std::vector<std::unique_ptr<brick::AST::node>> action_set = get_set(max_arity);
     int random = util::get_random_int(0, action_set.size() - 1, MCTS::mt);
     return std::move(action_set[random]);
+  }
+
+  int action_factory::max_set_size() const {
+    return get_set(std::numeric_limits<double>::infinity()).size();
   }
 }
 }

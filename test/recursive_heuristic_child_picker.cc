@@ -33,10 +33,10 @@ TEST(PickLeaf, PrefersUnvisitedNodes) {
 
   auto& one = root.get_children().front();
   one.set_n(200);
-  one.set_v(2000000000);
+  one.set_q(2000000000);
   auto& two = root.get_children().back();
   two.set_n(0);
-  two.set_v(.00001);
+  two.set_q(.00001);
 
   auto* leaf = rhcp.pick(&root);
   ASSERT_TRUE(leaf->get_ast_node()->to_string() == "2"); 
@@ -53,13 +53,13 @@ TEST(PickLeaf, ReturnsLeafMaximizingHeuristic) {
   root.add_child(std::make_unique<brick::AST::number_node>(2));
 
   root.set_n(10);
-  root.set_v(5);
+  root.set_q(5);
   auto& one = root.get_children().front();
   one.set_n(8);
-  one.set_v(4);
+  one.set_q(4);
   auto& two = root.get_children().back();
   two.set_n(2);
-  two.set_v(9); 
+  two.set_q(9); 
 
   auto leaf = rhcp.pick(&root);
   ASSERT_TRUE(leaf->get_ast_node()->to_string() == "1");

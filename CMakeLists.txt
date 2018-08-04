@@ -19,7 +19,10 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_BINARY_DIR}/Release
 set (TEST_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/bin")
 
 set (include_dir "${CMAKE_CURRENT_SOURCE_DIR}/include")
-include_directories (${include_dir})
+set (dlib_include_dir "${CMAKE_CURRENT_SOURCE_DIR}/deps/dlib")
+include_directories (${include_dir} ${dlib_include_dir})
+
+add_subdirectory("./deps/dlib")
 
 set (symreg_tests OFF)
 if (MAKE_TESTS)
@@ -37,7 +40,5 @@ if (symreg_tests)
   add_subdirectory("./deps/googletest")
   add_subdirectory("./test")
 endif()
-
-add_subdirectory("./deps/dlib")
 
 add_subdirectory("./src")

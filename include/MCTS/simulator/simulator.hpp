@@ -356,6 +356,7 @@ namespace simulator
         const MAB&,
         const LossFn&, 
         LeafPicker,
+        action_factory,
         int
       );
       void simulate(search_node*, int num_sim); 
@@ -371,12 +372,13 @@ namespace simulator
     const MAB& mab,
     const LossFn& loss, 
     LeafPicker lp, 
+    action_factory af,
     int depth_limit
   )
     : mab_(mab), 
       loss_(loss),
       depth_limit_(depth_limit),
-      af_(action_factory{1}),
+      af_(af),
       lp_(lp),
       thresh_(.999),
       ast_within_thresh_(nullptr),
