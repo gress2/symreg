@@ -27,11 +27,14 @@ policy_iteration_driver<NeuralNet, TreeSearch>::policy_iteration_driver(NeuralNe
 template <class NeuralNet, class TreeSearch>
 void policy_iteration_driver<NeuralNet, TreeSearch>::iterate() {
   for (int i = 0; i < num_iterations_; i++) {
-    mcts_.reset();
-    mcts_.iterate();
-    auto new_examples = mcts_.get_training_examples();
-    examples_.insert(examples_.end(), new_examples.begin(), new_examples.end()); 
-    nn_.train(examples);
+    for (int j = 0; j < num_episodes_; j++) {
+      mcts_.reset();
+      mcts_.iterate();
+      auto new_examples = mcts_.get_training_examples();
+      std::cout << mcts_.get_result()->to_string() << std::endl;
+      examples_.insert(examples_.end(), new_examples.begin(), new_examples.end()); 
+    }
+    nn_.train(examples_);
   }
 }
 
