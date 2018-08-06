@@ -1,5 +1,7 @@
-#ifndef SYMREG_DATASET_HPP_
-#define SYMREG_DATASET_HPP_
+#pragma once
+
+#include "brick.hpp"
+#include "util.hpp"
 
 #include <vector>
 
@@ -25,5 +27,17 @@ dataset generate_dataset(T mapped_lambda, int n, int min, int max) {
   return ds;
 }
 
+dataset generate_dataset(symreg::util::config& cfg) {
+  dataset ds;
+  std::string fn = cfg.get<std::string>("dataset.function");
+  std::unique_ptr<brick::AST::AST> ast = brick::AST::parse(fn);
+  auto lambda = [&] (int x) {
+    return ast->eval(x);
+  };
+  int n = cfg.get<int>("dataset.n");
+  int min = cfg.get<int>("dataset.xmin");
+  int max = cfg.get<int>("dataset.xmax");
+  return generate_dataset(lambda, n, min, max);
 }
-#endif
+
+} // end symreg

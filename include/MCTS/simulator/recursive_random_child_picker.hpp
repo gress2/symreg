@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_RECURSIVE_RANDOM_CHILD_PICKER_
-#define SYMREG_MCTS_SIMULATOR_RECURSIVE_RANDOM_CHILD_PICKER_
+#pragma once
 
 #include "MCTS/simulator/leaf_picker.hpp"
 
@@ -67,5 +66,3 @@ search_node* recursive_random_child_picker::pick_leaf(search_node* node) {
 }
 }
 }
-
-#endif

@@ -1,0 +1,7 @@
+[dataset]
+function = "x*x*x"
+xmin = -100
+xmax = 100
+n = 100
+
+

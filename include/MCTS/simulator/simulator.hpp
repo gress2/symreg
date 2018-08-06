@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_SIMULATOR_HPP_
-#define SYMREG_MCTS_SIMULATOR_SIMULATOR_HPP_
+#pragma once
 
 #include <algorithm>
 #include <fstream>
@@ -527,5 +526,3 @@ namespace simulator
 }
 }
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_DNN_HPP_
-#define SYMREG_MCTS_DNN_HPP_
+#pragma once
 
 #include <iostream>
 #include <numeric>
@@ -56,5 +55,3 @@ void DNN::train(training_examples& examples) {
 
 
 }
-
-#endif

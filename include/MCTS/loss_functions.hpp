@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_LOSS_FUNCTIONS_HPP_
-#define SYMREG_MCTS_LOSS_FUNCTIONS_HPP_
+#pragma once
 
 namespace symreg
 {
@@ -48,4 +47,3 @@ auto bind_loss_fn(LossFn& loss, dataset& ds) {
 }
 }
 
-#endif

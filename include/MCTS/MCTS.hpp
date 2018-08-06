@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_MCTS_HPP_
-#define SYMREG_MCTS_MCTS_HPP_
+#pragma once
 
 #include <algorithm>
 #include <fstream>
@@ -282,5 +281,3 @@ training_examples MCTS<Simulator>::get_training_examples() const {
   
 }
 }
-
-#endif

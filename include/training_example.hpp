@@ -1,5 +1,4 @@
-#ifndef SYMREG_TRAINING_EXAMPLE_HPP_
-#define SYMREG_TRAINING_EXAMPLE_HPP_
+#pragma once
 
 #include <vector>
 
@@ -15,5 +14,3 @@ struct training_example {
 using training_examples = std::vector<training_example>; 
 
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SCORE_FUNCTIONS_HPP_
-#define SYMREG_MCTS_SCORE_FUNCTIONS_HPP_
+#pragma once
 
 namespace symreg
 {
@@ -15,5 +14,3 @@ static auto UCB1 = [](double child_val, int child_n, int parent_n) {
 }
 }
 }
-
-#endif

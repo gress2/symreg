@@ -1,33 +1,18 @@
 #include <iostream>
 
+#include "cpptoml.hpp"
 #include "symreg.hpp"
 
-int main() {
-  symreg::dataset ds = symreg::generate_dataset(
-    [](double x) { return x*x*x+x*x+x; },
-    100,
-    -100,
-    100
-  );
-
-  using namespace symreg::MCTS;
-
-  simulator::action_factory af(1);
-  symreg::DNN neural_net(af.max_set_size());
-
-  simulator::simulator sim(
-    score::UCB1,
-    loss::bind_loss_fn(loss::MAPE, ds),
-    simulator::recursive_heuristic_child_picker{score::UCB1},
-    af,
-    10,
-    &neural_net
-  );
-
-  MCTS mcts(1000, ds, sim);
+int main(int argc, char* argv[]) {
   
-  symreg::policy_iteration_driver driver(neural_net, mcts);
-  driver.iterate();
+  if (argc < 2) {
+    std::cerr << "Error: Must pass a .toml config file path" << std::endl;
+    return 1;
+  }
+
+  symreg::util::config cfg(cpptoml::parse_file(argv[1]));
+  symreg::dataset ds = symreg::generate_dataset(cfg);
+  symreg::MCTS::MCTS mcts(ds, cfg);
 
   return 0;
 }

@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_RANDOM_LEAF_PICKER_
-#define SYMREG_MCTS_SIMULATOR_RANDOM_LEAF_PICKER_
+#pragma once
 
 #include "MCTS/simulator/leaf_picker.hpp"
 
@@ -67,5 +66,3 @@ search_node* random_leaf_picker::pick_leaf(search_node* node) {
 }
 }
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SYMREG_POLICY_ITERATION_DRIVER_HPP_
-#define SYMREG_POLICY_ITERATION_DRIVER_HPP_
+#pragma once
 
 #include "training_example.hpp"
 
@@ -39,5 +38,4 @@ void policy_iteration_driver<NeuralNet, TreeSearch>::iterate() {
 }
 
 }
-#endif
 

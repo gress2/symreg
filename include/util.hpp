@@ -1,12 +1,36 @@
-#ifndef SYMREG_MCTS_UTIL_HPP_
-#define SYMREG_MCTS_UTIL_HPP_
+#pragma once
 
 #include <random>
+
+#include "cpptoml.hpp"
 
 namespace symreg
 {
 namespace util
 {
+
+class config {
+  private:
+    std::shared_ptr<cpptoml::table> tbl_;
+  public:
+    config(std::shared_ptr<cpptoml::table>);
+    template <class T>
+    T get(std::string);
+};
+
+config::config(std::shared_ptr<cpptoml::table> tbl) 
+  : tbl_(tbl)
+{}
+
+template <class T>
+T config::get(std::string key) {
+  auto option = tbl_->get_qualified_as<T>(key);
+  if (!option) {
+    std::cerr << "Error: key [" << key << "] not in config" << std::endl;
+    exit(1);
+  }
+  return option.value_or(T{});
+}
 
   /**
    * @brief simply returns a random integer in the range [lower, upper] 
@@ -24,5 +48,3 @@ namespace util
 
 }
 }
-
-#endif

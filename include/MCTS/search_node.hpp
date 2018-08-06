@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_TREE_SEARCH_NODE_HPP_
-#define SYMREG_MCTS_TREE_SEARCH_NODE_HPP_
+#pragma once
 
 #include <cmath>
 #include <functional>
@@ -334,5 +333,3 @@ namespace symreg
     }
 
 }
-
-#endif

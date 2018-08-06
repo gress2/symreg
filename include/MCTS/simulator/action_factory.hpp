@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_ACTION_FACTORY_HPP_
-#define SYMREG_MCTS_SIMULATOR_ACTION_FACTORY_HPP_
+#pragma once
 
 namespace symreg
 {
@@ -75,10 +74,8 @@ namespace simulator
   }
 
   int action_factory::max_set_size() const {
-    return get_set(std::numeric_limits<double>::infinity()).size();
+    return get_set(std::numeric_limits<int>::infinity()).size();
   }
 }
 }
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_LEAF_PICKER_HPP_
-#define SYMREG_MCTS_SIMULATOR_LEAF_PICKER_HPP_
+#pragma once
 
 namespace symreg
 {
@@ -31,4 +30,3 @@ search_node* leaf_picker<T>::pick(search_node* node) {
 }
 }
 
-#endif

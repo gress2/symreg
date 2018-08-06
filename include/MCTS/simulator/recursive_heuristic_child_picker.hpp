@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_RECURSIVE_HEURISTIC_CHILD_PICKER_
-#define SYMREG_MCTS_SIMULATOR_RECURSIVE_HEURISTIC_CHILD_PICKER_
+#pragma once
 
 #include "MCTS/simulator/leaf_picker.hpp"
 
@@ -70,5 +69,3 @@ search_node* recursive_heuristic_child_picker<Heuristic>::pick_leaf(search_node*
 }
 }
 }
-
-#endif
