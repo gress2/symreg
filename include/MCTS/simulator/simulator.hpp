@@ -339,7 +339,7 @@ namespace simulator
     return elem.second;
   };
 
-  template <class MAB, class LossFn, class LeafPicker>
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet = symreg::DNN>
   class simulator {
     private:
       MAB mab_;
@@ -351,13 +351,15 @@ namespace simulator
       std::shared_ptr<AST> ast_within_thresh_;
       fixed_priority_queue<priq_elem_type, 
         decltype(priq_cmp), decltype(priq_elem_sign), 20> priq_; 
+      NeuralNet* nn_;
     public:
       simulator(
         const MAB&,
         const LossFn&, 
         LeafPicker,
         action_factory,
-        int
+        int,
+        NeuralNet* = nullptr
       );
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
@@ -367,13 +369,14 @@ namespace simulator
       std::vector<std::shared_ptr<AST>> dump_pri_q();
   };
 
-  template <class MAB, class LossFn, class LeafPicker>
-  simulator<MAB, LossFn, LeafPicker>::simulator(
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  simulator<MAB, LossFn, LeafPicker, NeuralNet>::simulator(
     const MAB& mab,
     const LossFn& loss, 
     LeafPicker lp, 
     action_factory af,
-    int depth_limit
+    int depth_limit,
+    NeuralNet* nn 
   )
     : mab_(mab), 
       loss_(loss),
@@ -382,7 +385,8 @@ namespace simulator
       lp_(lp),
       thresh_(.999),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp, priq_elem_sign)
+      priq_(priq_cmp, priq_elem_sign),
+      nn_(nn)
   {}
 
   /**
@@ -400,8 +404,8 @@ namespace simulator
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class MAB, class LossFn, class LeafPicker>
-  bool simulator<MAB, LossFn, LeafPicker>::add_actions(search_node* curr) {
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  bool simulator<MAB, LossFn, LeafPicker, NeuralNet>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -453,8 +457,8 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class MAB, class LossFn, class LeafPicker>
-  void simulator<MAB, LossFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  void simulator<MAB, LossFn, LeafPicker, NeuralNet>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
       search_node* leaf = lp_.pick(curr);
       if (!leaf) {
@@ -473,39 +477,45 @@ namespace simulator
           leaf->set_dead_end();
         } 
       }
-      auto rollout_ast = rollout(leaf, depth_limit_, af_);
-      double value = 1 - loss_(rollout_ast);
-      if (std::isnan(value) || std::isinf(value)) {
-        value = 0;
-      }
 
-      priq_.push(std::make_pair(rollout_ast, value));
-      
-      backprop(value, leaf);
-      if (value > thresh_) {
-        ast_within_thresh_ = rollout_ast;
-        break;
+      double value;
+
+      if (nn_) {
+        value = nn_->inference("state goes here").first; 
+        backprop(value, leaf);
+      } else {
+        auto rollout_ast = rollout(leaf, depth_limit_, af_);
+        value = 1 - loss_(rollout_ast);
+        if (std::isnan(value) || std::isinf(value)) {
+          value = 0;
+        }
+        priq_.push(std::make_pair(rollout_ast, value));
+        backprop(value, leaf);
+        if (value > thresh_) {
+          ast_within_thresh_ = rollout_ast;
+          break;
+        }
       }
     }
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  bool simulator<MAB, LossFn, LeafPicker>::got_reward_within_thresh() {
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  bool simulator<MAB, LossFn, LeafPicker, NeuralNet>::got_reward_within_thresh() {
     return ast_within_thresh_.get();
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  std::shared_ptr<AST> simulator<MAB, LossFn, LeafPicker>::get_ast_within_thresh() {
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  std::shared_ptr<AST> simulator<MAB, LossFn, LeafPicker, NeuralNet>::get_ast_within_thresh() {
     return ast_within_thresh_;
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  void simulator<MAB, LossFn, LeafPicker>::reset() {
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  void simulator<MAB, LossFn, LeafPicker, NeuralNet>::reset() {
     ast_within_thresh_ = nullptr;
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  std::vector<std::shared_ptr<AST>> simulator<MAB, LossFn, LeafPicker>::dump_pri_q() {
+  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
+  std::vector<std::shared_ptr<AST>> simulator<MAB, LossFn, LeafPicker, NeuralNet>::dump_pri_q() {
     std::vector<std::shared_ptr<AST>> vec;
     auto pair_ary = priq_.dump();
     for (auto& pair : pair_ary) {

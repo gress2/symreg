@@ -1,9 +1,9 @@
 #ifndef SYMREG_MCTS_UTIL_HPP_
 #define SYMREG_MCTS_UTIL_HPP_
 
+#include <random>
+
 namespace symreg
-{
-namespace MCTS
 {
 namespace util
 {
@@ -22,7 +22,6 @@ namespace util
     return dist(mt); 
   }
 
-}
 }
 }
 

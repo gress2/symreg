@@ -18,7 +18,7 @@
 #include "MCTS/search_node.hpp"
 #include "MCTS/score_functions.hpp"
 #include "MCTS/loss_functions.hpp"
-#include "MCTS/util.hpp"
+#include "util.hpp"
 #include "MCTS/simulator/simulator.hpp"
 
 #define LOG_LEVEL 1
