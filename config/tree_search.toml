@@ -4,4 +4,16 @@ xmin = -100
 xmax = 100
 n = 100
 
+[mcts]
+num_simulations = 1000
+[mcts.simulator]
+
+[actions]
+binary = ["addition", "subtraction", "multiplication", "division"] 
+unary = ["negate"]
+functions = []
+vars = ["_x0"]
+
+[logging]
+file = "somelog.log"
 

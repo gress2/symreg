@@ -91,7 +91,6 @@ class MCTS {
     dataset dataset_; 
     search_node root_;
     search_node* curr_;
-    const std::string log_file_;
     std::ofstream log_stream_;
     std::shared_ptr<brick::AST::AST> result_ast_;
     double terminal_thresh_ = .999;
@@ -102,11 +101,8 @@ class MCTS {
     bool game_over();
     std::shared_ptr<brick::AST::AST> build_current_ast();
   public:
-    MCTS(
-      int, 
-      dataset,
-      Simulator
-    );
+    MCTS(int, dataset, Simulator);
+    MCTS(dataset, util::config);
     void iterate();
     std::string to_gv() const;
     dataset& get_dataset();
@@ -141,6 +137,18 @@ MCTS<Simulator>::MCTS(
     simulator_(simulator)
 { 
   simulator_.add_actions(curr_);
+}
+
+template <class Simulator>
+MCTS<Simulator>::MCTS(dataset ds, util::config cfg)
+  : num_simulations(cfg.get<int>("mcts.num_simulations"),
+    dataset_(ds),
+    root_(search_node(std::make_unique<brick::AST::posit_node>())),
+    curr_(&root_),
+    log_stream_(cfg.get<std::string>("logging.file")),
+    result_ast_(nullptr)
+{
+
 }
 
 /**

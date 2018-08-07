@@ -10,17 +10,81 @@ namespace simulator
 
   class action_factory {
     private:
-      int num_dims_;
+      std::vector<std::unique_ptr<brick::AST::node>> binary_set_;
+      std::vector<std::unique_ptr<brick::AST::node>> unary_set_;
+      std::vector<std::unique_ptr<brick::AST::node>> function_set_;
+      std::vector<std::unique_ptr<brick::AST::node>> var_set_;
+      std::vector<std::unique_ptr<brick::AST::node>> scalar_set_;
     public:
-      action_factory(int);
+      action_factory();
+      action_factory(symreg::util::config);
       std::vector<std::unique_ptr<brick::AST::node>> get_set(int) const;
       std::unique_ptr<brick::AST::node> get_random(int) const;
       int max_set_size() const;
   }; 
 
-  action_factory::action_factory(int num_dims) 
-    : num_dims_(num_dims)
-  {
+  action_factory::action_factory() 
+    : binary_set_({
+        std::make_unique<brick::AST::addition_node>(),
+        std::make_unique<brick::AST::subtraction_node>(),
+        std::make_unique<brick::AST::multiplication_node>(),
+        std::make_unique<brick::AST::division_node>(),
+      }),
+      unary_set_({
+        std::make_unique<brick::AST::negate_node>(),
+      }),
+      function_set_({
+
+      }),
+      var_set_({
+        std::make_unique<brick::AST::id_node>("_x0"),
+      }),
+      scalar_set_({
+        std::make_unique<brick::AST::number_node>(2),
+        std::make_unique<brick::AST::number_node>(3),
+        std::make_unique<brick::AST::number_node>(4)
+      })
+  {}
+
+  action_factory::action_factory(symreg::util::config cfg) {
+    std::vector<std::string> binary = cfg.get_vector<std::string>("actions.binary");
+    std::vector<std::string> unary = cfg.get_vector<std::string>("actions.unary");
+    std::vector<std::string> functions = cfg.get_vector<std::string>("actions.functions");
+    std::vector<std::string> vars = cfg.get_vector<std::string>("actions.vars");
+    int scalar_min = cfg.get<int>("actions.scalar_min");
+    int scalar_max = cfg.get<int>("actions.scalar_max");
+
+    for (auto& elem : binary) {
+      if (elem == "addition") {
+        binary_set_.push_back(std::make_unique<brick::AST::addition_node>());
+      } else if (elem == "subtraction") {
+        binary_set_.push_back(std::make_unique<brick::AST::subtraction_node>());
+      } else if (elem == "multiplication") {
+        binary_set_.push_back(std::make_unique<brick::AST::multiplication_node>());
+      } else if (elem == "division") {
+        binary_set_.push_back(std::make_unique<brick::AST::division_node>());
+      }
+    }
+
+    for (auto& elem : unary) {
+      if (elem == "posit") {
+        unary_set_.push_back(std::make_unique<brick::AST::posit_node>());
+      } else if (elem == "negate") {
+        unary_set_.push_back(std::make_unique<brick::AST::negate_node>());
+      }
+    }
+
+    for (auto& elem : functions) {
+      
+    }
+
+    for (auto& elem : vars) {
+      var_set_.push_back(std::make_unique<brick::AST::id_node>(elem));
+    }
+
+    for (int i = scalar_min; i <= scalar_max; i++) {
+      scalar_set_.push_back(std::make_unique<brick::AST::number_node>(i));
+    }
   }
 
   /**
@@ -35,25 +99,25 @@ namespace simulator
    */
   std::vector<std::unique_ptr<brick::AST::node>> action_factory::get_set(int max_arity) const {
     std::vector<std::unique_ptr<brick::AST::node>> actions;
-    // binary operators
+
+    auto copy_to = [](std::vector<std::unique_ptr<brick::AST::node>>& src,
+        std::vector<std::unique_ptr<brick::AST::node>>& dest) {
+      for (auto& elem : src) {
+        dest.push_back(std::unique_ptr<brick::AST::node>(elem->copy()));
+      } 
+    };
+
     if (max_arity >= 2) {
-      actions.push_back(std::make_unique<brick::AST::addition_node>());
-      actions.push_back(std::make_unique<brick::AST::multiplication_node>());
-      actions.push_back(std::make_unique<brick::AST::division_node>());
-      actions.push_back(std::make_unique<brick::AST::subtraction_node>());
-    }
-    // unary operators
-    if (max_arity >= 1) {
-//      actions.push_back(std::make_unique<brick::AST::negate_node>());
-    }
-    // terminals
-    for (int a = 1; a < 4; a++) {
-      actions.push_back(std::make_unique<brick::AST::number_node>(a));
+      copy_to(binary_set_, actions);
     }
 
-    for (int i = 0; i < num_dims_; i++) {
-      actions.push_back(std::make_unique<brick::AST::id_node>("_x" + std::to_string(i)));
+    if (max_arity >= 1) {
+      copy_to(unary_set_, actions);
+      copy_to(function_set_, actions);
     }
+
+    copy_to(var_set_, actions);
+    copy_to(id_set_, actions);
 
     return actions;
   }
@@ -74,7 +138,8 @@ namespace simulator
   }
 
   int action_factory::max_set_size() const {
-    return get_set(std::numeric_limits<int>::infinity()).size();
+    return binary_set_.size() + unary_set_.size() + function_set_.size() +
+     var_set_.size() + id_set_.size(); 
   }
 }
 }
