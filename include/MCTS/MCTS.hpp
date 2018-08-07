@@ -13,10 +13,9 @@
 #include "brick.hpp"
 #include "dataset.hpp"
 #include "training_example.hpp"
-#include "MCTS/mt.hpp"
 #include "MCTS/search_node.hpp"
-#include "MCTS/score_functions.hpp"
-#include "MCTS/loss_functions.hpp"
+#include "MCTS/scorer.hpp"
+#include "MCTS/loss.hpp"
 #include "util.hpp"
 #include "MCTS/simulator/simulator.hpp"
 
@@ -77,32 +76,32 @@ search_node* choose_move(search_node* node, double terminal_thresh) {
     }
   }
 
-  auto random = util::get_random_int(0, moves.size() - 1, MCTS::mt);
+  auto random = util::get_random_int(0, moves.size() - 1, symreg::mt);
   return moves[random];
 }
 
-template <class Simulator>
+template <class Regressor = symreg::DNN>
 class MCTS {
   private:
-    // STATIC MEMBERS
-    static std::random_device rd_;
     // MEMBERS
     const int num_simulations_;
-    dataset dataset_; 
+    dataset& dataset_; 
     search_node root_;
     search_node* curr_;
     std::ofstream log_stream_;
     std::shared_ptr<brick::AST::AST> result_ast_;
     double terminal_thresh_ = .999;
-    Simulator simulator_;
+    simulator::simulator<Regressor> simulator_;
     training_examples examples_;
     // HELPERS
     void write_game_state(int) const;
     bool game_over();
     std::shared_ptr<brick::AST::AST> build_current_ast();
   public:
-    MCTS(int, dataset, Simulator);
-    MCTS(dataset, util::config);
+    // composable constructor for testability
+    MCTS(dataset&, simulator::simulator<Regressor>, int);
+    // .toml configurable
+    MCTS(dataset&, Regressor*, util::config);
     void iterate();
     std::string to_gv() const;
     dataset& get_dataset();
@@ -112,43 +111,35 @@ class MCTS {
     training_examples get_training_examples() const;
 };
 
-
-/**
- * @brief MCTS constructor
- * 
- * A root search node is constructed using a unary + operator.
- * This node is automatically expanded with all possible actions.
- * The curr_ pointer is initialized to point at this search node.
- * Additionally, the classes random number generator instance is seeded.
- */
-template <class Simulator>
-MCTS<Simulator>::MCTS(
-    int num_simulations,
-    dataset ds,
-    Simulator simulator
+// composable constructor for testability
+template <class Regressor>
+MCTS<Regressor>::MCTS(
+    dataset& ds,
+    simulator::simulator<Regressor> _simulator,
+    int num_simulations
 )
   : num_simulations_(num_simulations),
     dataset_(ds), 
     root_(search_node(std::make_unique<brick::AST::posit_node>())),
     curr_(&root_),
-    log_file_("mcts.log"),
-    log_stream_(log_file_),
+    log_stream_("mcts.log"),
     result_ast_(nullptr),
-    simulator_(simulator)
+    simulator_(_simulator)
 { 
   simulator_.add_actions(curr_);
 }
 
-template <class Simulator>
-MCTS<Simulator>::MCTS(dataset ds, util::config cfg)
-  : num_simulations(cfg.get<int>("mcts.num_simulations"),
+template <class Regressor>
+MCTS<Regressor>::MCTS(dataset& ds, Regressor* regr, util::config cfg)
+  : num_simulations_(cfg.get<int>("mcts.num_simulations")),
     dataset_(ds),
     root_(search_node(std::make_unique<brick::AST::posit_node>())),
     curr_(&root_),
     log_stream_(cfg.get<std::string>("logging.file")),
-    result_ast_(nullptr)
+    result_ast_(nullptr),
+    simulator_(simulator::simulator<Regressor>(cfg, ds, regr)) 
 {
-
+  simulator_.add_actions(curr_);
 }
 
 /**
@@ -162,8 +153,8 @@ MCTS<Simulator>::MCTS(dataset ds, util::config cfg)
  * 
  * @param n number determining how many time we wish to loop
  */
-template <class Simulator>
-void MCTS<Simulator>::iterate() {
+template <class Regressor>
+void MCTS<Regressor>::iterate() {
   std::size_t i = 0;
   while (true) {
     if (game_over()) {
@@ -202,8 +193,8 @@ void MCTS<Simulator>::iterate() {
  * @brief writes the MCTS tree as a gv to file
  * @param iteration an integer which determines the name of the gv file
  */
-template <class Simulator>
-void MCTS<Simulator>::write_game_state(int iteration) const {
+template <class Regressor>
+void MCTS<Regressor>::write_game_state(int iteration) const {
   std::ofstream out_file(std::to_string(iteration) + ".gv");
   out_file << to_gv() << std::endl;
 }
@@ -212,8 +203,8 @@ void MCTS<Simulator>::write_game_state(int iteration) const {
  * @brief a check to determine whether or not more simulation is possible
  * given the current move
  */
-template <class Simulator>
-bool MCTS<Simulator>::game_over() {
+template <class Regressor>
+bool MCTS<Regressor>::game_over() {
   return curr_->is_dead_end();
 }
 
@@ -223,8 +214,8 @@ bool MCTS<Simulator>::game_over() {
  *
  * @return the graph viz string representation
  */
-template <class Simulator>
-std::string MCTS<Simulator>::to_gv() const {
+template <class Regressor>
+std::string MCTS<Regressor>::to_gv() const {
   std::stringstream ss;
   ss << "digraph {" << std::endl;
   ss << root_.to_gv();
@@ -237,8 +228,8 @@ std::string MCTS<Simulator>::to_gv() const {
  *
  * @return a non-const reference to the MCTS class' symbol table
  */
-template <class Simulator>
-dataset& MCTS<Simulator>::get_dataset() {
+template <class Regressor>
+dataset& MCTS<Regressor>::get_dataset() {
   return dataset_;
 }
 
@@ -248,13 +239,13 @@ dataset& MCTS<Simulator>::get_dataset() {
  *
  * @return a shared pointer to an AST
  */
-template <class Simulator>
-std::shared_ptr<brick::AST::AST> MCTS<Simulator>::build_current_ast() {
+template <class Regressor>
+std::shared_ptr<brick::AST::AST> MCTS<Regressor>::build_current_ast() {
   return simulator::build_ast_upward(curr_);
 }
 
-template <class Simulator>
-std::shared_ptr<brick::AST::AST> MCTS<Simulator>::get_result() {
+template <class Regressor>
+std::shared_ptr<brick::AST::AST> MCTS<Regressor>::get_result() {
   if (result_ast_) {
     return result_ast_;
   } else {
@@ -266,8 +257,8 @@ std::shared_ptr<brick::AST::AST> MCTS<Simulator>::get_result() {
  * @brief Resets the state of the MCTS search, allowing the next
  * iterate call to operate from a blank slate
  */
-template <class Simulator>
-void MCTS<Simulator>::reset() {
+template <class Regressor>
+void MCTS<Regressor>::reset() {
   root_.get_children().clear();
   root_.set_q(0);
   root_.set_n(0);
@@ -276,14 +267,14 @@ void MCTS<Simulator>::reset() {
   simulator_.reset();
 }
 
-template <class Simulator>
+template <class Regressor>
 std::vector<std::shared_ptr<brick::AST::AST>> 
-  MCTS<Simulator>::get_top_n_asts() {
+  MCTS<Regressor>::get_top_n_asts() {
   return simulator_.dump_pri_q();
 }
 
-template <class Simulator>
-training_examples MCTS<Simulator>::get_training_examples() const {
+template <class Regressor>
+training_examples MCTS<Regressor>::get_training_examples() const {
   return examples_;
 }
   

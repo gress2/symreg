@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 namespace symreg
 {
 namespace MCTS
@@ -11,24 +13,10 @@ namespace leaf_picker
 
 // LEAF PICKER INTERFACE
 
-/**
- * @brief a CRTP interface for leaf pickers
- */
-template <typename T>
 class leaf_picker {
   public:
-    search_node* pick(search_node*); 
+    virtual search_node* pick(search_node*) = 0; 
 }; 
-
-/**
- * @brief picks a leaf in the MCTS tree using runtime polymorphism
- * @param node the node which use as the base of our leaf search
- * @return a chosen search node (leaf)
- */
-template <typename T>
-search_node* leaf_picker<T>::pick(search_node* node) {
-  return static_cast<T*>(this)->pick_leaf(node);
-}
 
 // RANDOM LEAF PICKER
 
@@ -36,20 +24,12 @@ search_node* leaf_picker<T>::pick(search_node* node) {
  * @brief a leaf picker which first builds a vector of all leaves in the
  * tree and then picks at random from the vector
  */
-class random_leaf_picker : public leaf_picker<random_leaf_picker> {
+class random_leaf_picker : public leaf_picker {
   private:
     void build_leaf_vector(search_node*, std::vector<search_node*>&);
   public:
-    random_leaf_picker();
-    search_node* pick_leaf(search_node*);
+    search_node* pick(search_node*);
 };
-
-/**
- * @brief random_leaf_picker constructor
- * @param mt a reference to a marsenne twister instance
- */
-random_leaf_picker::random_leaf_picker() 
-{}
 
 /**
  * @brief BFS traversal of a tree starting from node. when
@@ -75,38 +55,36 @@ void random_leaf_picker::build_leaf_vector(search_node* node,
  * @param node the node to start the leaf search from
  * @return the randomly chosen leaf
  */
-search_node* random_leaf_picker::pick_leaf(search_node* node) {
+search_node* random_leaf_picker::pick(search_node* node) {
   std::vector<search_node*> leaves;
   build_leaf_vector(node, leaves);
   if (leaves.empty()) {
     return nullptr;
   }
-  int random = util::get_random_int(0, leaves.size() - 1, MCTS::mt);
+  int random = util::get_random_int(0, leaves.size() - 1, symreg::mt);
   return leaves[random];
 }
 
 // RECURSIVE HEURISTIC LEAF PICKER
 
-template <class Heuristic>
-class recursive_heuristic_child_picker 
-  : public leaf_picker<recursive_heuristic_child_picker<Heuristic>> {
+template <class Scorer>
+class recursive_heuristic_child_picker : public leaf_picker {
   private:
-    Heuristic h_;
+    Scorer scorer_;
     search_node* max_heuristic_node(search_node*);
   public:
-    recursive_heuristic_child_picker(Heuristic);
-    search_node* pick_leaf(search_node*);
+    recursive_heuristic_child_picker(Scorer);
+    search_node* pick(search_node*);
 }; 
 
-template <class Heuristic>
-recursive_heuristic_child_picker<Heuristic>
-  ::recursive_heuristic_child_picker(Heuristic h)
-  : h_(h)
+template <class Scorer>
+recursive_heuristic_child_picker<Scorer>
+  ::recursive_heuristic_child_picker(Scorer scorer)
+  : scorer_(scorer)
 {}
 
-
-template <class Heuristic>
-search_node* recursive_heuristic_child_picker<Heuristic>::max_heuristic_node(search_node* node) {
+template <class Scorer>
+search_node* recursive_heuristic_child_picker<Scorer>::max_heuristic_node(search_node* node) {
   std::vector<search_node*> moves;
   double max = -std::numeric_limits<double>::infinity();
   for (auto& child : node->get_children()) {
@@ -118,7 +96,7 @@ search_node* recursive_heuristic_child_picker<Heuristic>::max_heuristic_node(sea
       moves.push_back(&child);
       continue;
     }
-    double score = h_(child.get_q(), child.get_n(), node->get_n());
+    double score = scorer_.score(child.get_q(), child.get_n(), node->get_n());
     if (score > max) {
       max = score;
       moves.clear();
@@ -127,12 +105,12 @@ search_node* recursive_heuristic_child_picker<Heuristic>::max_heuristic_node(sea
       moves.push_back(&child);
     } 
   }
-  auto random = util::get_random_int(0, moves.size() - 1, MCTS::mt); 
+  auto random = util::get_random_int(0, moves.size() - 1, symreg::mt); 
   return moves[random];
 }
 
-template <class Heuristic>
-search_node* recursive_heuristic_child_picker<Heuristic>::pick_leaf(search_node* node) {
+template <class Scorer>
+search_node* recursive_heuristic_child_picker<Scorer>::pick(search_node* node) {
   while (!node->is_leaf_node()) {
     auto child = max_heuristic_node(node);
     if (child) {
@@ -149,20 +127,12 @@ search_node* recursive_heuristic_child_picker<Heuristic>::pick_leaf(search_node*
 /**
  * @brief a leaf picker which at every level of the tree chooses a child randomly
  */
-class recursive_random_child_picker : public leaf_picker<recursive_random_child_picker> {
+class recursive_random_child_picker : public leaf_picker {
   private:
     search_node* random_child(search_node*);
   public:
-    recursive_random_child_picker();
-    search_node* pick_leaf(search_node*); 
+    search_node* pick(search_node*); 
 };
-
-/**
- * @brief recursive_random_child_picker constructor
- * @param mt a reference to a marsenne twister instance
- */
-recursive_random_child_picker::recursive_random_child_picker()
-{}
 
 /**
  * @brief returns a pointer to a random child of a passed search node
@@ -176,7 +146,7 @@ search_node* recursive_random_child_picker::random_child(search_node* node) {
     return nullptr;
   }
 
-  int random = util::get_random_int(0, children.size() - 1, MCTS::mt);
+  int random = util::get_random_int(0, children.size() - 1, symreg::mt);
   return &children[random]; 
 }
 
@@ -187,7 +157,7 @@ search_node* recursive_random_child_picker::random_child(search_node* node) {
  * @param node the node from which to start the leaf search
  * @return the randomly selected leaf
  */
-search_node* recursive_random_child_picker::pick_leaf(search_node* node) {
+search_node* recursive_random_child_picker::pick(search_node* node) {
   while (!node->is_leaf_node()) {
     auto child = random_child(node);
     if (child) {
@@ -200,6 +170,24 @@ search_node* recursive_random_child_picker::pick_leaf(search_node* node) {
   return node;
 }
 
+std::shared_ptr<leaf_picker> get(std::string picker_str) {
+  std::string rhcp = "recursive_heuristic_child_picker";
+  if (picker_str == "random_leaf") {
+    return std::make_shared<random_leaf_picker>();
+  } else if (picker_str == "recursive_random_child") {
+    return std::make_shared<recursive_random_child_picker>();
+  } else if (picker_str.compare(0, rhcp.size(), rhcp) == 0) {
+    std::string tmpl = picker_str.substr(rhcp.size() + 1, 
+        picker_str.size() - rhcp.size() - 2);  
+    if (tmpl == "UCB1") {
+      return std::make_shared<recursive_heuristic_child_picker<scorer::UCB1>>(scorer::UCB1{});
+    } else {
+      return std::make_shared<recursive_heuristic_child_picker<scorer::UCB1>>(scorer::UCB1{});
+    }
+  } else {
+    return std::make_shared<recursive_heuristic_child_picker<scorer::UCB1>>(scorer::UCB1{});
+  } 
+} 
 
 } // leaf_picker
 } // simulator

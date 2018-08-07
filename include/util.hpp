@@ -35,7 +35,7 @@ T config::get(std::string key) {
 }
 
 template <class T>
-std::vector<T> get_vector(std::string key) {
+std::vector<T> config::get_vector(std::string key) {
   auto option = tbl_->get_qualified_array_of<T>(key);
   if (!option) {
     std::cerr << "Error: key [" << key << "] not in config" << std::endl;

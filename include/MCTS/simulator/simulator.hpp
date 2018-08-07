@@ -23,6 +23,8 @@ namespace simulator
 {
   using AST = brick::AST::AST;
 
+  // HELPERS
+
   /**
    * @brief builds an AST starting from a search node to the root of the MCTS
    *
@@ -124,7 +126,7 @@ namespace simulator
     if (targets.empty()) {
       return nullptr;
     }
-    int random = util::get_random_int(0, targets.size() - 1, MCTS::mt);
+    int random = util::get_random_int(0, targets.size() - 1, symreg::mt);
     return targets[random];
   }
 
@@ -293,7 +295,7 @@ namespace simulator
     return nterminal;
   }
 
-  search_node* get_second_highest(search_node* node, scorer& _scorer) {
+  search_node* get_second_highest(search_node* node, std::shared_ptr<symreg::scorer::scorer>& _scorer) {
     search_node* parent = node->get_parent();
     search_node* second_highest = nullptr;
     double max_score = -1; 
@@ -301,7 +303,7 @@ namespace simulator
       if (&child == node) {
         continue;
       }
-      auto score = _scorer.score(child.get_q(), child.get_n(), parent->get_n());
+      auto score = _scorer->score(child.get_q(), child.get_n(), parent->get_n());
       if (score > max_score) {
         max_score = score;
         second_highest = &child;
@@ -310,11 +312,11 @@ namespace simulator
     return second_highest;
   }
 
-  void inflate_visit_count(search_node* node, scorer& _scorer) {
+  void inflate_visit_count(search_node* node, std::shared_ptr<symreg::scorer::scorer>& _scorer) {
     search_node* second_highest = get_second_highest(node, _scorer);
     if (second_highest) {
-      auto scorer_lambda = [] (double child_val, int child_n, int parent_n) {
-        return _scorer.score(child_val, child_n, parent_n);
+      auto scorer_lambda = [&] (double child_val, int child_n, int parent_n) {
+        return _scorer->score(child_val, child_n, parent_n);
       };
 
       auto tipping_point = compute_tipping_point(
@@ -338,29 +340,38 @@ namespace simulator
     return elem.second;
   };
 
-  template <class NeuralNet = symreg::DNN>
+  // SIMULATOR
+
+  template <class Regressor = symreg::DNN>
   class simulator {
     private:
-      scorer scorer_;
-      loss_fn loss_fn_;
+      std::shared_ptr<scorer::scorer> scorer_;
+      std::shared_ptr<loss_fn::loss_fn> loss_fn_;
+      std::shared_ptr<leaf_picker::leaf_picker> leaf_picker_;
+      action_factory action_factory_;
+      dataset& ds_;
       int depth_limit_;
-      action_factory af_;
-      leaf_picker leaf_picker_;
-      double thresh_;
+      double early_term_thresh_;
       std::shared_ptr<AST> ast_within_thresh_;
       fixed_priority_queue<priq_elem_type, 
         decltype(priq_cmp), decltype(priq_elem_sign), 20> priq_; 
-      NeuralNet* nn_;
+      Regressor* regr_;
     public:
+      // for convenience
+      simulator(dataset&);
+      // for testing
       simulator(
-        scorer,
-        loss_fn, 
-        leaf_picker,
+        std::shared_ptr<scorer::scorer>,
+        std::shared_ptr<loss_fn::loss_fn>, 
+        std::shared_ptr<leaf_picker::leaf_picker>,
         action_factory,
-        int,
-        NeuralNet* = nullptr
+        dataset&,
+        int = 10,
+        double = .999,
+        Regressor* = nullptr
       );
-      simulator(util::config& cfg, NeuralNet* nn);
+      // configured with .toml
+      simulator(util::config&, dataset&, Regressor*);
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
       bool got_reward_within_thresh();
@@ -369,36 +380,57 @@ namespace simulator
       std::vector<std::shared_ptr<AST>> dump_pri_q();
   };
 
-  template <class NeuralNet>
-  simulator<NeuralNet>::simulator(
-    scorer _scorer,
-    loss_fn _loss_fn, 
-    leaf_picker _leaf_picker, 
-    action_factory af,
+  // for convenience
+  template <class Regressor>
+  simulator<Regressor>::simulator(dataset& ds)
+    : scorer_(std::make_shared<scorer::UCB1>()),
+      loss_fn_(std::make_shared<loss_fn::MAPE>()),
+      leaf_picker_(std::make_shared
+          <leaf_picker::recursive_heuristic_child_picker<scorer::UCB1>>(scorer::UCB1{})),
+      action_factory_(action_factory{}), 
+      ds_(ds),
+      depth_limit_(8),
+      early_term_thresh_(.999),
+      ast_within_thresh_(nullptr),
+      regr_(nullptr)
+  {}
+      
+  // for testing
+  template <class Regressor>
+  simulator<Regressor>::simulator(
+    std::shared_ptr<scorer::scorer> _scorer,
+    std::shared_ptr<loss_fn::loss_fn> _loss_fn, 
+    std::shared_ptr<leaf_picker::leaf_picker> _leaf_picker, 
+    action_factory _action_factory,
+    dataset& ds,
     int depth_limit,
-    NeuralNet* nn 
+    double early_term_thresh,
+    Regressor* regr 
   )
     : scorer_(_scorer), 
       loss_fn_(_loss_fn),
-      depth_limit_(depth_limit),
-      af_(af),
       leaf_picker_(_leaf_picker),
-      thresh_(.999),
+      action_factory_(_action_factory),
+      ds_(ds),
+      depth_limit_(depth_limit),
+      early_term_thresh_(early_term_thresh),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp, priq_elem_sign),
-      nn_(nn)
+      regr_(regr)
   {}
 
-  template <class NeuralNet>
-  simulator<NeuralNet>::simulator(util::config& cfg, NeuralNet* nn)
+  // configured with .toml
+  template <class Regressor>
+  simulator<Regressor>::simulator(util::config& cfg, dataset& ds, Regressor* regr)
     : scorer_(scorer::get(cfg.get<std::string>("mcts.scorer"))),
-      loss_fn_(loss_fn::get(cfg.get<std::string>("mcts.loss_nf"))),
-      leaf_picker(leaf_picker::get(cfg.get<std::string>("mcts.leaf_picker"))),
-      action_factory(action_factory(cfg)),
-      thresh_(cfg.get<double>("mcts.stopping_thresh")),
+      loss_fn_(loss_fn::get(cfg.get<std::string>("mcts.loss_fn"))),
+      leaf_picker_(leaf_picker::get(cfg.get<std::string>("mcts.leaf_picker"))),
+      action_factory_(action_factory(cfg)),
+      ds_(ds),
+      depth_limit_(cfg.get<int>("mcts.depth_limit")),
+      early_term_thresh_(cfg.get<double>("mcts.early_term_thresh")),
       ast_within_thresh_(nullptr),
       priq_(priq_cmp, priq_elem_sign),
-      nn_(nn)
+      regr_(regr)
   {}
 
   /**
@@ -416,8 +448,8 @@ namespace simulator
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class NeuralNet>
-  bool simulator<NeuralNet>::add_actions(search_node* curr) {
+  template <class Regressor>
+  bool simulator<Regressor>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -436,8 +468,8 @@ namespace simulator
     for (search_node* targ : targets) {
       // we're moving these nodes so have to get a new action set each iteration
       std::vector<std::unique_ptr<brick::AST::node>> 
-        actions = af_.get_set(max_child_arity);
-
+        actions = action_factory_.get_set(max_child_arity);
+      
       for (auto it = actions.begin(); it != actions.end();) {
         curr->add_child(std::move(*it));
         auto& child = curr->get_children().back();
@@ -449,7 +481,7 @@ namespace simulator
         );
         
         // we must erase these from the vector after they are moved otherwise
-        // the memory gets freed when the vector goes out of scope. TODO: can we avoid this?
+        // the memory gets freed when the vector goes out of scope
         it = actions.erase(it);
       }
     }
@@ -469,17 +501,18 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class NeuralNet>
-  void simulator<NeuralNet>::simulate(search_node* curr, int num_sim) {
+  template <class Regressor>
+  void simulator<Regressor>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
-      search_node* leaf = leaf_picker_.pick(curr);
+      search_node* leaf = leaf_picker_->pick(curr);
       if (!leaf) {
         continue;
       }
 
       if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
-          inflate_visit_count(leaf, scorer_);
+          //inflate_visit_count(leaf, scorer_);
+          leaf->set_n(leaf->get_n() + 1);
           continue;
         } else if (add_actions(leaf)) {
           auto& children = leaf->get_children();
@@ -492,18 +525,18 @@ namespace simulator
 
       double value;
 
-      if (nn_) {
-        value = nn_->inference("state goes here").first; 
+      if (regr_) {
+        value = regr_->inference("state goes here").first; 
         backprop(value, leaf);
       } else {
-        auto rollout_ast = rollout(leaf, depth_limit_, af_);
-        value = 1 - loss_fn_.loss(rollout_ast);
+        auto rollout_ast = rollout(leaf, depth_limit_, action_factory_);
+        value = 1 - loss_fn_->loss(ds_, rollout_ast);
         if (std::isnan(value) || std::isinf(value)) {
           value = 0;
         }
         priq_.push(std::make_pair(rollout_ast, value));
         backprop(value, leaf);
-        if (value > thresh_) {
+        if (value > early_term_thresh_) {
           ast_within_thresh_ = rollout_ast;
           break;
         }
@@ -511,23 +544,23 @@ namespace simulator
     }
   }
 
-  template <class NeuralNet>
-  bool simulator<NeuralNet>::got_reward_within_thresh() {
+  template <class Regressor>
+  bool simulator<Regressor>::got_reward_within_thresh() {
     return ast_within_thresh_.get();
   }
 
-  template <class NeuralNet>
-  std::shared_ptr<AST> simulator<NeuralNet>::get_ast_within_thresh() {
+  template <class Regressor>
+  std::shared_ptr<AST> simulator<Regressor>::get_ast_within_thresh() {
     return ast_within_thresh_;
   }
 
-  template <class NeuralNet>
-  void simulator<NeuralNet>::reset() {
+  template <class Regressor>
+  void simulator<Regressor>::reset() {
     ast_within_thresh_ = nullptr;
   }
 
-  template <class NeuralNet>
-  std::vector<std::shared_ptr<AST>> simulator<NeuralNet>::dump_pri_q() {
+  template <class Regressor>
+  std::vector<std::shared_ptr<AST>> simulator<Regressor>::dump_pri_q() {
     std::vector<std::shared_ptr<AST>> vec;
     auto pair_ary = priq_.dump();
     for (auto& pair : pair_ary) {

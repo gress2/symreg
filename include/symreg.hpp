@@ -4,7 +4,8 @@
 
 namespace symreg
 {
-static std::mt19937 mt(std::random_device()());
+static std::random_device rd;
+static std::mt19937 mt(rd());
 } // symreg
 
 #include "dataset.hpp"
