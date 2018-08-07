@@ -100,7 +100,7 @@ namespace simulator
   std::vector<std::unique_ptr<brick::AST::node>> action_factory::get_set(int max_arity) const {
     std::vector<std::unique_ptr<brick::AST::node>> actions;
 
-    auto copy_to = [](std::vector<std::unique_ptr<brick::AST::node>>& src,
+    auto copy_from = [](std::vector<std::unique_ptr<brick::AST::node>>& src,
         std::vector<std::unique_ptr<brick::AST::node>>& dest) {
       for (auto& elem : src) {
         dest.push_back(std::unique_ptr<brick::AST::node>(elem->copy()));
@@ -108,16 +108,16 @@ namespace simulator
     };
 
     if (max_arity >= 2) {
-      copy_to(binary_set_, actions);
+      copy_from(binary_set_, actions);
     }
 
     if (max_arity >= 1) {
-      copy_to(unary_set_, actions);
-      copy_to(function_set_, actions);
+      copy_from(unary_set_, actions);
+      copy_from(function_set_, actions);
     }
 
-    copy_to(var_set_, actions);
-    copy_to(id_set_, actions);
+    copy_from(var_set_, actions);
+    copy_from(id_set_, actions);
 
     return actions;
   }

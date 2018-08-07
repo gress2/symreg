@@ -13,9 +13,7 @@
 
 #include "MCTS/search_node.hpp"
 #include "MCTS/simulator/action_factory.hpp"
-#include "MCTS/simulator/recursive_random_child_picker.hpp"
-#include "MCTS/simulator/random_leaf_picker.hpp"
-#include "MCTS/simulator/recursive_heuristic_child_picker.hpp"
+#include "MCTS/simulator/leaf_picker.hpp"
 
 namespace symreg
 {
@@ -295,8 +293,7 @@ namespace simulator
     return nterminal;
   }
 
-  template <class MAB>
-  search_node* get_second_highest(search_node* node, MAB& mab) {
+  search_node* get_second_highest(search_node* node, scorer& _scorer) {
     search_node* parent = node->get_parent();
     search_node* second_highest = nullptr;
     double max_score = -1; 
@@ -304,7 +301,7 @@ namespace simulator
       if (&child == node) {
         continue;
       }
-      auto score = mab(child.get_q(), child.get_n(), parent->get_n());
+      auto score = _scorer.score(child.get_q(), child.get_n(), parent->get_n());
       if (score > max_score) {
         max_score = score;
         second_highest = &child;
@@ -313,12 +310,15 @@ namespace simulator
     return second_highest;
   }
 
-  template <class MAB>
-  void inflate_visit_count(search_node* node, MAB& mab) {
-    search_node* second_highest = get_second_highest(node, mab);
+  void inflate_visit_count(search_node* node, scorer& _scorer) {
+    search_node* second_highest = get_second_highest(node, _scorer);
     if (second_highest) {
+      auto scorer_lambda = [] (double child_val, int child_n, int parent_n) {
+        return _scorer.score(child_val, child_n, parent_n);
+      };
+
       auto tipping_point = compute_tipping_point(
-          mab, node->get_q(), node->get_n(), second_highest->get_q(),
+          scorer_lambda, node->get_q(), node->get_n(), second_highest->get_q(),
           second_highest->get_n(), node->get_parent()->get_n()
       ); 
       int inflate_value = tipping_point - node->get_n();
@@ -338,14 +338,14 @@ namespace simulator
     return elem.second;
   };
 
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet = symreg::DNN>
+  template <class NeuralNet = symreg::DNN>
   class simulator {
     private:
-      MAB mab_;
-      LossFn loss_;
+      scorer scorer_;
+      loss_fn loss_fn_;
       int depth_limit_;
       action_factory af_;
-      LeafPicker lp_;
+      leaf_picker leaf_picker_;
       double thresh_;
       std::shared_ptr<AST> ast_within_thresh_;
       fixed_priority_queue<priq_elem_type, 
@@ -353,13 +353,14 @@ namespace simulator
       NeuralNet* nn_;
     public:
       simulator(
-        const MAB&,
-        const LossFn&, 
-        LeafPicker,
+        scorer,
+        loss_fn, 
+        leaf_picker,
         action_factory,
         int,
         NeuralNet* = nullptr
       );
+      simulator(util::config& cfg, NeuralNet* nn);
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
       bool got_reward_within_thresh();
@@ -368,21 +369,33 @@ namespace simulator
       std::vector<std::shared_ptr<AST>> dump_pri_q();
   };
 
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  simulator<MAB, LossFn, LeafPicker, NeuralNet>::simulator(
-    const MAB& mab,
-    const LossFn& loss, 
-    LeafPicker lp, 
+  template <class NeuralNet>
+  simulator<NeuralNet>::simulator(
+    scorer _scorer,
+    loss_fn _loss_fn, 
+    leaf_picker _leaf_picker, 
     action_factory af,
     int depth_limit,
     NeuralNet* nn 
   )
-    : mab_(mab), 
-      loss_(loss),
+    : scorer_(_scorer), 
+      loss_fn_(_loss_fn),
       depth_limit_(depth_limit),
       af_(af),
-      lp_(lp),
+      leaf_picker_(_leaf_picker),
       thresh_(.999),
+      ast_within_thresh_(nullptr),
+      priq_(priq_cmp, priq_elem_sign),
+      nn_(nn)
+  {}
+
+  template <class NeuralNet>
+  simulator<NeuralNet>::simulator(util::config& cfg, NeuralNet* nn)
+    : scorer_(scorer::get(cfg.get<std::string>("mcts.scorer"))),
+      loss_fn_(loss_fn::get(cfg.get<std::string>("mcts.loss_nf"))),
+      leaf_picker(leaf_picker::get(cfg.get<std::string>("mcts.leaf_picker"))),
+      action_factory(action_factory(cfg)),
+      thresh_(cfg.get<double>("mcts.stopping_thresh")),
       ast_within_thresh_(nullptr),
       priq_(priq_cmp, priq_elem_sign),
       nn_(nn)
@@ -403,8 +416,8 @@ namespace simulator
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  bool simulator<MAB, LossFn, LeafPicker, NeuralNet>::add_actions(search_node* curr) {
+  template <class NeuralNet>
+  bool simulator<NeuralNet>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -456,21 +469,21 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  void simulator<MAB, LossFn, LeafPicker, NeuralNet>::simulate(search_node* curr, int num_sim) {
+  template <class NeuralNet>
+  void simulator<NeuralNet>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
-      search_node* leaf = lp_.pick(curr);
+      search_node* leaf = leaf_picker_.pick(curr);
       if (!leaf) {
         continue;
       }
 
       if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
-          inflate_visit_count(leaf, mab_);
+          inflate_visit_count(leaf, scorer_);
           continue;
         } else if (add_actions(leaf)) {
           auto& children = leaf->get_children();
-          auto random = util::get_random_int(0, children.size() - 1, MCTS::mt);
+          auto random = util::get_random_int(0, children.size() - 1, symreg::mt);
           leaf = &(children[random]);
         } else {
           leaf->set_dead_end();
@@ -484,7 +497,7 @@ namespace simulator
         backprop(value, leaf);
       } else {
         auto rollout_ast = rollout(leaf, depth_limit_, af_);
-        value = 1 - loss_(rollout_ast);
+        value = 1 - loss_fn_.loss(rollout_ast);
         if (std::isnan(value) || std::isinf(value)) {
           value = 0;
         }
@@ -498,23 +511,23 @@ namespace simulator
     }
   }
 
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  bool simulator<MAB, LossFn, LeafPicker, NeuralNet>::got_reward_within_thresh() {
+  template <class NeuralNet>
+  bool simulator<NeuralNet>::got_reward_within_thresh() {
     return ast_within_thresh_.get();
   }
 
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  std::shared_ptr<AST> simulator<MAB, LossFn, LeafPicker, NeuralNet>::get_ast_within_thresh() {
+  template <class NeuralNet>
+  std::shared_ptr<AST> simulator<NeuralNet>::get_ast_within_thresh() {
     return ast_within_thresh_;
   }
 
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  void simulator<MAB, LossFn, LeafPicker, NeuralNet>::reset() {
+  template <class NeuralNet>
+  void simulator<NeuralNet>::reset() {
     ast_within_thresh_ = nullptr;
   }
 
-  template <class MAB, class LossFn, class LeafPicker, class NeuralNet>
-  std::vector<std::shared_ptr<AST>> simulator<MAB, LossFn, LeafPicker, NeuralNet>::dump_pri_q() {
+  template <class NeuralNet>
+  std::vector<std::shared_ptr<AST>> simulator<NeuralNet>::dump_pri_q() {
     std::vector<std::shared_ptr<AST>> vec;
     auto pair_ary = priq_.dump();
     for (auto& pair : pair_ary) {
@@ -523,6 +536,6 @@ namespace simulator
     return vec;
   } 
 
-}
-}
-}
+} // simulator
+} // MCTS
+} // symreg
