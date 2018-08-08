@@ -373,7 +373,9 @@ namespace simulator
   // SIMULATOR
 
   /**
-   *
+   * this is the component which actually does simulations within the MCTS
+   * algorithm. that is, leaves are chosen within the search tree and expanded
+   * or rolled out from
    */ 
   template <class Regressor = symreg::DNN>
   class simulator {
@@ -413,7 +415,11 @@ namespace simulator
       std::vector<std::shared_ptr<AST>> dump_pri_q();
   };
 
-  // for convenience
+  /**
+   * @brief a very default constructor for simulator
+   *
+   * @param ds a reference to a datset
+   */
   template <class Regressor>
   simulator<Regressor>::simulator(dataset& ds)
     : scorer_(std::make_shared<scorer::UCB1>()),
@@ -428,7 +434,25 @@ namespace simulator
       regr_(nullptr)
   {}
       
-  // for testing
+  /**
+   * @brief a fully configurable constructor for simulator
+   *
+   * @param _scorer a shared_ptr to a scorer instance, which
+   * determines the score of a search_node in the MCTS tree
+   * @param _loss_fn a shared_ptr to a loss function instance;
+   * the loss function is used to determine the value of an AST 
+   * @param _leaf_picker a shared_ptr to a leaf_picker instance,
+   * which determines how leaves in the tree are picked for expansion/rollout
+   * @param _action_factor an object which produces valid actions
+   * to be taken from each search node state i.e. what AST nodes should
+   * be added to the current path
+   * @param ds a reference to a datset
+   * @param depth_limit this determines how deep a valid AST can be in our search
+   * @param early_term_thresh determines how large a reward an AST must have to
+   * completely halt the search 
+   * @param regr a pointer (or nullptr) to a supervised learner capable of inferring
+   * a search nodes value and policy
+   */
   template <class Regressor>
   simulator<Regressor>::simulator(
     std::shared_ptr<scorer::scorer> _scorer,
@@ -451,7 +475,17 @@ namespace simulator
       regr_(regr)
   {}
 
-  // configured with .toml
+  /**
+   * @brief a simulator constructor primarily guided by a util::config
+   *
+   * pulls properties from a .toml config file to determine how fields of the simulator
+   * should be initialized
+   *
+   * @param cfg a reference to config object (essentially a wrapper around a cpptoml table)
+   * @param ds a reference to a datset
+   * @param regr a pointer (or nullptr) to a supervised learner capable of inferring
+   * a search node's value and policy
+   */
   template <class Regressor>
   simulator<Regressor>::simulator(util::config& cfg, dataset& ds, Regressor* regr)
     : scorer_(scorer::get(cfg.get<std::string>("mcts.scorer"))),
@@ -475,8 +509,6 @@ namespace simulator
    * all possible actions are attached to curr and up-linked to the the node. curr may only
    * be expanded while there are still possible moves to be made. actions are only added when
    * their addition doesnt lead to ASTs of greater depth than depth_limit_
-   *
-   * Design decision: depth limit
    *
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
@@ -577,21 +609,41 @@ namespace simulator
     }
   }
 
+  /**
+   * @brief checks whether an AST was encountered whose reward
+   * was >= the early stopping threshold
+   * @return true if a suitable AST was encountered, false otherwise
+   */
   template <class Regressor>
   bool simulator<Regressor>::got_reward_within_thresh() {
     return ast_within_thresh_.get();
   }
 
+  /**
+   * @brief a getter for the AST whose reward was within the early stopping threshold
+   * @return if an AST whose reward was >= the early stopping threshold
+   * was encountered, returns a shared_pointer to this AST. If no such
+   * AST has been seen, should return a nullptr
+   */
   template <class Regressor>
   std::shared_ptr<AST> simulator<Regressor>::get_ast_within_thresh() {
     return ast_within_thresh_;
   }
 
+  /**
+   * @brief resets the state of the simulator, enabling it to be reused
+   */
   template <class Regressor>
   void simulator<Regressor>::reset() {
     ast_within_thresh_ = nullptr;
   }
 
+  /**
+   * @brief puts all of the AST's in the priority queue in a vector and
+   * returns them
+   * @return a vector of shared pointers to ASTs. these ASTs will been among
+   * the top N highest rewarding ASTs encountered in simulation
+   */
   template <class Regressor>
   std::vector<std::shared_ptr<AST>> simulator<Regressor>::dump_pri_q() {
     std::vector<std::shared_ptr<AST>> vec;

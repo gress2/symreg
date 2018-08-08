@@ -8,6 +8,12 @@ namespace simulator
 {
   using AST = brick::AST::AST;
 
+  /**
+   * produces AST nodes to be appended to MCTS trees. capable
+   * of returning a vector of all valid AST nodes which can be added
+   * as children to a given search_node. also can be used to just
+   * get a random AST node for use in random rollouts
+   */
   class action_factory {
     private:
       std::vector<std::unique_ptr<brick::AST::node>> binary_set_;
@@ -23,6 +29,9 @@ namespace simulator
       int max_set_size() const;
   }; 
 
+  /**
+   * @brief a default action_factory constructor
+   */
   action_factory::action_factory() {
     // for whatever reason we can't initialize the vectors with initialization lists
     binary_set_.push_back(std::make_unique<brick::AST::addition_node>());
@@ -36,7 +45,11 @@ namespace simulator
     scalar_set_.push_back(std::make_unique<brick::AST::number_node>(4));
   }
 
-  action_factory::action_factory(symreg::util::config cfg) {
+  /**
+   * @brief builds action_factory according to the settings specified in .toml config
+   * @param cfg a wrapper around a .toml config
+   */
+  action_factory::action_factory(util::config& cfg) {
     std::vector<std::string> binary = cfg.get_vector<std::string>("actions.binary");
     std::vector<std::string> unary = cfg.get_vector<std::string>("actions.unary");
     std::vector<std::string> functions = cfg.get_vector<std::string>("actions.functions");
@@ -77,6 +90,17 @@ namespace simulator
     }
   }
 
+  /**
+   * @brief copies an actions set from a source to a destination vector.
+   *
+   * Invokes the (virtually dispatched) copy method of the ASTs in the source
+   * vector. the copy method is the same as the clone method, however, it also
+   * assigns a new node_id to the node, thus avoiding problems when we go to
+   * create graphviz graphics of MCTS 
+   *
+   * @param src a reference to the vector of AST nodes to copy from
+   * @param dest a reference to the vector of AST nodes to copy to
+   */
   void copy_from(const std::vector<std::unique_ptr<brick::AST::node>>& src,
       std::vector<std::unique_ptr<brick::AST::node>>& dest) {
     for (auto& elem : src) {
@@ -128,6 +152,11 @@ namespace simulator
     return std::move(action_set[random]);
   }
 
+  /**
+   * @brief essentially gets the max number of children a search node may have
+   * given this action factory
+   * @return the total number of distinct AST nodes this action factory can return
+   */
   int action_factory::max_set_size() const {
     return binary_set_.size() + unary_set_.size() + function_set_.size() +
      var_set_.size() + scalar_set_.size(); 
