@@ -6,7 +6,7 @@
 using action_factory = symreg::MCTS::simulator::action_factory;
 
 TEST(GetSet, BasicSanityCheck) {
-  action_factory af(3); 
+  action_factory af; 
 
   auto actions = af.get_set(2);
   ASSERT_TRUE(actions.size());
@@ -14,7 +14,7 @@ TEST(GetSet, BasicSanityCheck) {
 }
 
 TEST(GetSet, ArityMatchesParam) {
-  action_factory af(1);
+  action_factory af;
 
   for (int i = 0; i < 3; i++) {
     auto actions = af.get_set(i);
@@ -25,8 +25,7 @@ TEST(GetSet, ArityMatchesParam) {
 }
 
 TEST(GetRandom, BasicSanityCheck) {
-  action_factory af(1);
-
+  action_factory af;
   auto action = af.get_random(2);
   auto str = action->to_string();
   ASSERT_TRUE(str.size());

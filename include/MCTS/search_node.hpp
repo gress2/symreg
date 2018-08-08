@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_TREE_SEARCH_NODE_HPP_
-#define SYMREG_MCTS_TREE_SEARCH_NODE_HPP_
+#pragma once
 
 #include <cmath>
 #include <functional>
@@ -13,6 +12,9 @@
 
 namespace symreg
 {
+  /**
+   * @brief the node type which the MCTS tree is composed of
+   */
   class search_node {
     private:
       // MEMBERS
@@ -50,6 +52,7 @@ namespace symreg
       int get_n() const;
       double get_q() const;
       double get_p() const;
+      std::vector<double> get_pi() const;
       int get_depth() const;
       int get_unconnected() const;
       search_node* get_parent();
@@ -135,6 +138,7 @@ namespace symreg
       children_.push_back(std::move(child));
     }
 
+    // TODO: remove/change?
     void search_node::set_scorer(std::function<double(double, int, int)> scorer) {
       scorer_ = scorer;
     }
@@ -155,6 +159,7 @@ namespace symreg
       q_ = val;
     }
 
+    // TODO: documentation here
     void search_node::set_p(double val) {
       p_ = val;
     }
@@ -244,9 +249,18 @@ namespace symreg
       return q_;
     }
 
-
+    // TODO: documentation here
     double search_node::get_p() const {
       return p_;
+    }
+
+    // TODO: documentation here
+    std::vector<double> search_node::get_pi() const {
+      std::vector<double> pi;
+      for (auto& child : children_) {
+        pi.push_back(child.get_n() / n_);
+      }
+      return pi;
     }
 
     /**
@@ -325,5 +339,3 @@ namespace symreg
     }
 
 }
-
-#endif

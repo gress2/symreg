@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 
 TEST(GetRandomInt, ReturnsIntegerWithinRange) {
-  auto random = symreg::MCTS::util::get_random_int(0, 10, symreg::MCTS::mt);
+  auto random = symreg::util::get_random_int(0, 10, symreg::mt);
   ASSERT_GE(random, 0);
   ASSERT_LE(random, 10);
 }

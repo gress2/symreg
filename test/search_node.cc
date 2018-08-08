@@ -68,8 +68,8 @@ TEST(SetAndGetN, Case1) {
 
 TEST(SetAndGetV, Case1) {
   search_node node(std::make_unique<brick::AST::posit_node>());
-  node.set_v(73.45);
-  ASSERT_TRUE(node.get_v() == 73.45);
+  node.set_q(73.45);
+  ASSERT_TRUE(node.get_q() == 73.45);
 } 
 
 TEST(SetAndGetDepth, Case1) {

@@ -1,5 +1,4 @@
-#ifndef SYMREG_MCTS_SIMULATOR_SIMULATOR_HPP_
-#define SYMREG_MCTS_SIMULATOR_SIMULATOR_HPP_
+#pragma once
 
 #include <algorithm>
 #include <fstream>
@@ -14,9 +13,7 @@
 
 #include "MCTS/search_node.hpp"
 #include "MCTS/simulator/action_factory.hpp"
-#include "MCTS/simulator/recursive_random_child_picker.hpp"
-#include "MCTS/simulator/random_leaf_picker.hpp"
-#include "MCTS/simulator/recursive_heuristic_child_picker.hpp"
+#include "MCTS/simulator/leaf_picker.hpp"
 
 namespace symreg
 {
@@ -25,6 +22,8 @@ namespace MCTS
 namespace simulator
 {
   using AST = brick::AST::AST;
+
+  // HELPERS
 
   /**
    * @brief builds an AST starting from a search node to the root of the MCTS
@@ -127,7 +126,7 @@ namespace simulator
     if (targets.empty()) {
       return nullptr;
     }
-    int random = util::get_random_int(0, targets.size() - 1, MCTS::mt);
+    int random = util::get_random_int(0, targets.size() - 1, symreg::mt);
     return targets[random];
   }
 
@@ -220,6 +219,13 @@ namespace simulator
     }
   }
 
+  /**
+   * @brief loop up a path in the MCTS tree, increasing visit count by
+   * the passed value and each search node
+   *
+   * @param value the value to increase the nodes' visit counts by
+   * @param curr the node to start increasing from
+   */
   void increase_visit_upward(int value, search_node* curr) {
     while (curr) {
       curr->set_n(curr->get_n() + value);
@@ -227,56 +233,66 @@ namespace simulator
     }
   }
 
-  template <class F, class TN, class TV, class... Args>
-  constexpr TN compute_tipping_point(
-    F&& function,
-    TV vterminal,
-    TN nterminal,
-    TV vother,
-    TN nother,
-    TN ntotal,
+  /**
+   * @brief uses secant method to find the number of times the highest
+   * scored node must be visited before starting to visit the next
+   * highest scoring node.
+   *
+   * @param function scoring function lambda
+   * @param q_term the q value of the highest scored node
+   * @param n_term the visit count of the highest scored node
+   * @param q_other the q value of the second highest scoring node
+   * @param n_other the visit count of the second highest scoring node 
+   * @param args a parameter pack for whatever else the scoring function may require
+   * @return the visit count which will cause the highest scoring node to become the
+   * second highest scoring node
+   */
+  template <class ScoreFn, class... Args>
+  constexpr int compute_tipping_point(
+    ScoreFn&& function,
+    double q_term,
+    int n_term,
+    double q_other,
+    int n_other,
+    int n_total,
     Args&&... args
   )
   {
     // Types and constants
-    static_assert(std::is_floating_point<TV>::value);
-    static_assert(std::is_arithmetic<TN>::value);
-    using floating_point = TV;
-    using integer = TN;
-    constexpr floating_point min = std::numeric_limits<floating_point>::min();
-    constexpr floating_point max = std::numeric_limits<integer>::max();
+    constexpr double min = std::numeric_limits<double>::min();
+    constexpr double max = std::numeric_limits<int>::max();
 
     // Functions
-    const integer n = ntotal - nother - nterminal;
+    const int n = n_total - n_other - n_term;
     auto difference = [=, &function, &args...](auto x) {
-      const auto fterminal = std::forward<F>(function)(
-        vterminal,
+      const auto f_terminal = std::forward<ScoreFn>(function)(
+        q_term,
         x,
-        x + nother + n,
+        x + n_other + n,
         std::forward<Args>(args)...
       );
-      const auto fother = std::forward<F>(function)(
-        vother,
-        nother,
-        x + nother + n,
+      const auto f_other = std::forward<ScoreFn>(function)(
+        q_other,
+        n_other,
+        x + n_other + n,
         std::forward<Args>(args)...
       );
-      return fterminal - fother;
+      return f_terminal - f_other;
     };
 
     // Initialization
-    bool ok = nterminal > 0 && nother > 0 && nterminal + nother <= ntotal;
-    floating_point x0 = 0;
-    floating_point x1 = nterminal;
-    floating_point x2 = nother;
-    floating_point f0 = 0;
-    floating_point f1 = 0;
-    integer n0 = 0;
-    integer n1 = std::ceil(x1);
+    bool ok = n_term > 0 && n_other > 0 && n_term + n_other <= n_total;
+    double x0 = 0;
+    double x1 = n_term;
+    double x2 = n_other;
+    double f0 = 0;
+    double f1 = 0;
+    int n0 = 0;
+    int n1 = std::ceil(x1);
     bool stabilized = false;
 
     // Secant method
-    if (ok && difference(nterminal) > 0) {
+    if (ok && difference(n_term) > 0) {
       f1 = difference(x1);
       do {
         x0 = x1;
@@ -289,15 +305,21 @@ namespace simulator
         stabilized = std::signbit(f0 * f1) && n0 == n1;
       } while(!stabilized && std::isnormal(x2 - x1) && x2 < max);
       if (stabilized || std::abs(x2 - x1) < min || std::abs(f1 - f0) < min) {
-        nterminal = std::max(nterminal, n1);
+        n_term = std::max(n_term, n1);
       }
     }
 
-    return nterminal;
+    return n_term;
   }
 
-  template <class MAB>
-  search_node* get_second_highest(search_node* node, MAB& mab) {
+  /**
+   * @brief given a parent node, find the second highest scoring child node
+   *
+   * @param node the parent node for whose children we are interested in
+   * @param _scorer a shared pointer to a search node scorer 
+   * @return a pointer to the second highest scoring search node
+   */
+  search_node* get_second_highest(search_node* node, std::shared_ptr<scorer::scorer>& _scorer) {
     search_node* parent = node->get_parent();
     search_node* second_highest = nullptr;
     double max_score = -1; 
@@ -305,7 +327,7 @@ namespace simulator
       if (&child == node) {
         continue;
       }
-      auto score = mab(child.get_q(), child.get_n(), parent->get_n());
+      auto score = _scorer->score(child.get_q(), child.get_n(), parent->get_n());
       if (score > max_score) {
         max_score = score;
         second_highest = &child;
@@ -314,12 +336,21 @@ namespace simulator
     return second_highest;
   }
 
-  template <class MAB>
-  void inflate_visit_count(search_node* node, MAB& mab) {
-    search_node* second_highest = get_second_highest(node, mab);
+  /**
+   * @brief inflates the visit count of a highest scoring terminal node to avoid wasting simulations
+   *
+   * @param node the highest scoring terminal node which needs its visit count increased
+   * @param _scorer a shared pointer to a search_node scorer
+   */
+  void inflate_visit_count(search_node* node, std::shared_ptr<scorer::scorer>& _scorer) {
+    search_node* second_highest = get_second_highest(node, _scorer);
     if (second_highest) {
+      auto scorer_lambda = [&] (double child_val, int child_n, int parent_n) {
+        return _scorer->score(child_val, child_n, parent_n);
+      };
+
       auto tipping_point = compute_tipping_point(
-          mab, node->get_q(), node->get_n(), second_highest->get_q(),
+          scorer_lambda, node->get_q(), node->get_n(), second_highest->get_q(),
           second_highest->get_n(), node->get_parent()->get_n()
       ); 
       int inflate_value = tipping_point - node->get_n();
@@ -339,25 +370,43 @@ namespace simulator
     return elem.second;
   };
 
-  template <class MAB, class LossFn, class LeafPicker>
+  // SIMULATOR
+
+  /**
+   * this is the component which actually does simulations within the MCTS
+   * algorithm. that is, leaves are chosen within the search tree and expanded
+   * or rolled out from
+   */ 
+  template <class Regressor = symreg::DNN>
   class simulator {
     private:
-      MAB mab_;
-      LossFn loss_;
+      std::shared_ptr<scorer::scorer> scorer_;
+      std::shared_ptr<loss_fn::loss_fn> loss_fn_;
+      std::shared_ptr<leaf_picker::leaf_picker> leaf_picker_;
+      action_factory action_factory_;
+      dataset& ds_;
       int depth_limit_;
-      action_factory af_;
-      LeafPicker lp_;
-      double thresh_;
+      double early_term_thresh_;
       std::shared_ptr<AST> ast_within_thresh_;
       fixed_priority_queue<priq_elem_type, 
         decltype(priq_cmp), decltype(priq_elem_sign), 20> priq_; 
+      Regressor* regr_;
     public:
+      // for convenience
+      simulator(dataset&);
+      // for testing
       simulator(
-        const MAB&,
-        const LossFn&, 
-        LeafPicker,
-        int
+        std::shared_ptr<scorer::scorer>,
+        std::shared_ptr<loss_fn::loss_fn>, 
+        std::shared_ptr<leaf_picker::leaf_picker>,
+        action_factory,
+        dataset&,
+        int = 10,
+        double = .999,
+        Regressor* = nullptr
       );
+      // configured with .toml
+      simulator(util::config&, dataset&, Regressor*);
       void simulate(search_node*, int num_sim); 
       bool add_actions(search_node* curr); 
       bool got_reward_within_thresh();
@@ -366,21 +415,91 @@ namespace simulator
       std::vector<std::shared_ptr<AST>> dump_pri_q();
   };
 
-  template <class MAB, class LossFn, class LeafPicker>
-  simulator<MAB, LossFn, LeafPicker>::simulator(
-    const MAB& mab,
-    const LossFn& loss, 
-    LeafPicker lp, 
-    int depth_limit
-  )
-    : mab_(mab), 
-      loss_(loss),
-      depth_limit_(depth_limit),
-      af_(action_factory{1}),
-      lp_(lp),
-      thresh_(.999),
+  /**
+   * @brief a very default constructor for simulator
+   *
+   * @param ds a reference to a datset
+   */
+  template <class Regressor>
+  simulator<Regressor>::simulator(dataset& ds)
+    : scorer_(std::make_shared<scorer::UCB1>()),
+      loss_fn_(std::make_shared<loss_fn::MAPE>()),
+      leaf_picker_(std::make_shared
+          <leaf_picker::recursive_heuristic_child_picker<scorer::UCB1>>(scorer::UCB1{})),
+      action_factory_(action_factory{}), 
+      ds_(ds),
+      depth_limit_(8),
+      early_term_thresh_(.999),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp, priq_elem_sign)
+      priq_(priq_cmp, priq_elem_sign),
+      regr_(nullptr)
+  {}
+      
+  /**
+   * @brief a fully configurable constructor for simulator
+   *
+   * @param _scorer a shared_ptr to a scorer instance, which
+   * determines the score of a search_node in the MCTS tree
+   * @param _loss_fn a shared_ptr to a loss function instance;
+   * the loss function is used to determine the value of an AST 
+   * @param _leaf_picker a shared_ptr to a leaf_picker instance,
+   * which determines how leaves in the tree are picked for expansion/rollout
+   * @param _action_factor an object which produces valid actions
+   * to be taken from each search node state i.e. what AST nodes should
+   * be added to the current path
+   * @param ds a reference to a datset
+   * @param depth_limit this determines how deep a valid AST can be in our search
+   * @param early_term_thresh determines how large a reward an AST must have to
+   * completely halt the search 
+   * @param regr a pointer (or nullptr) to a supervised learner capable of inferring
+   * a search nodes value and policy
+   */
+  template <class Regressor>
+  simulator<Regressor>::simulator(
+    std::shared_ptr<scorer::scorer> _scorer,
+    std::shared_ptr<loss_fn::loss_fn> _loss_fn, 
+    std::shared_ptr<leaf_picker::leaf_picker> _leaf_picker, 
+    action_factory _action_factory,
+    dataset& ds,
+    int depth_limit,
+    double early_term_thresh,
+    Regressor* regr 
+  )
+    : scorer_(_scorer), 
+      loss_fn_(_loss_fn),
+      leaf_picker_(_leaf_picker),
+      action_factory_(_action_factory),
+      ds_(ds),
+      depth_limit_(depth_limit),
+      early_term_thresh_(early_term_thresh),
+      ast_within_thresh_(nullptr),
+      priq_(priq_cmp, priq_elem_sign),
+      regr_(regr)
+  {}
+
+  /**
+   * @brief a simulator constructor primarily guided by a util::config
+   *
+   * pulls properties from a .toml config file to determine how fields of the simulator
+   * should be initialized
+   *
+   * @param cfg a reference to config object (essentially a wrapper around a cpptoml table)
+   * @param ds a reference to a datset
+   * @param regr a pointer (or nullptr) to a supervised learner capable of inferring
+   * a search node's value and policy
+   */
+  template <class Regressor>
+  simulator<Regressor>::simulator(util::config& cfg, dataset& ds, Regressor* regr)
+    : scorer_(scorer::get(cfg.get<std::string>("mcts.scorer"))),
+      loss_fn_(loss_fn::get(cfg.get<std::string>("mcts.loss_fn"))),
+      leaf_picker_(leaf_picker::get(cfg.get<std::string>("mcts.leaf_picker"))),
+      action_factory_(action_factory(cfg)),
+      ds_(ds),
+      depth_limit_(cfg.get<int>("mcts.depth_limit")),
+      early_term_thresh_(cfg.get<double>("mcts.early_term_thresh")),
+      ast_within_thresh_(nullptr),
+      priq_(priq_cmp, priq_elem_sign),
+      regr_(regr)
   {}
 
   /**
@@ -393,13 +512,11 @@ namespace simulator
    * be expanded while there are still possible moves to be made. actions are only added when
    * their addition doesnt lead to ASTs of greater depth than depth_limit_
    *
-   * Design decision: depth limit
-   *
    * @param curr the node to be expanded
    * @return a boolean denoting whether or not the node was expanded
    */
-  template <class MAB, class LossFn, class LeafPicker>
-  bool simulator<MAB, LossFn, LeafPicker>::add_actions(search_node* curr) {
+  template <class Regressor>
+  bool simulator<Regressor>::add_actions(search_node* curr) {
     // find nodes above in the MCTS tree which need children in the AST sense
 
     std::vector<search_node*> targets = get_up_link_targets(curr);
@@ -418,8 +535,8 @@ namespace simulator
     for (search_node* targ : targets) {
       // we're moving these nodes so have to get a new action set each iteration
       std::vector<std::unique_ptr<brick::AST::node>> 
-        actions = af_.get_set(max_child_arity);
-
+        actions = action_factory_.get_set(max_child_arity);
+      
       for (auto it = actions.begin(); it != actions.end();) {
         curr->add_child(std::move(*it));
         auto& child = curr->get_children().back();
@@ -431,7 +548,7 @@ namespace simulator
         );
         
         // we must erase these from the vector after they are moved otherwise
-        // the memory gets freed when the vector goes out of scope. TODO: can we avoid this?
+        // the memory gets freed when the vector goes out of scope
         it = actions.erase(it);
       }
     }
@@ -451,59 +568,86 @@ namespace simulator
    * 
    * Design decision: in step 2, the first child is always chosen
    */
-  template <class MAB, class LossFn, class LeafPicker>
-  void simulator<MAB, LossFn, LeafPicker>::simulate(search_node* curr, int num_sim) {
+  template <class Regressor>
+  void simulator<Regressor>::simulate(search_node* curr, int num_sim) {
     for (int i = 0; i < num_sim; i++) {
-      search_node* leaf = lp_.pick(curr);
+      search_node* leaf = leaf_picker_->pick(curr);
       if (!leaf) {
         continue;
       }
 
       if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
-          inflate_visit_count(leaf, mab_);
+          //inflate_visit_count(leaf, scorer_);
+          leaf->set_n(leaf->get_n() + 1);
           continue;
         } else if (add_actions(leaf)) {
           auto& children = leaf->get_children();
-          auto random = util::get_random_int(0, children.size() - 1, MCTS::mt);
+          auto random = util::get_random_int(0, children.size() - 1, symreg::mt);
           leaf = &(children[random]);
         } else {
           leaf->set_dead_end();
         } 
       }
-      auto rollout_ast = rollout(leaf, depth_limit_, af_);
-      double value = 1 - loss_(rollout_ast);
-      if (std::isnan(value) || std::isinf(value)) {
-        value = 0;
-      }
 
-      priq_.push(std::make_pair(rollout_ast, value));
-      
-      backprop(value, leaf);
-      if (value > thresh_) {
-        ast_within_thresh_ = rollout_ast;
-        break;
+      double value;
+
+      if (regr_) {
+        value = regr_->inference("state goes here").first; 
+        backprop(value, leaf);
+      } else {
+        auto rollout_ast = rollout(leaf, depth_limit_, action_factory_);
+        value = 1 - loss_fn_->loss(ds_, rollout_ast);
+        if (std::isnan(value) || std::isinf(value)) {
+          value = 0;
+        }
+        priq_.push(std::make_pair(rollout_ast, value));
+        backprop(value, leaf);
+        if (value > early_term_thresh_) {
+          ast_within_thresh_ = rollout_ast;
+          break;
+        }
       }
     }
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  bool simulator<MAB, LossFn, LeafPicker>::got_reward_within_thresh() {
+  /**
+   * @brief checks whether an AST was encountered whose reward
+   * was >= the early stopping threshold
+   * @return true if a suitable AST was encountered, false otherwise
+   */
+  template <class Regressor>
+  bool simulator<Regressor>::got_reward_within_thresh() {
     return ast_within_thresh_.get();
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  std::shared_ptr<AST> simulator<MAB, LossFn, LeafPicker>::get_ast_within_thresh() {
+  /**
+   * @brief a getter for the AST whose reward was within the early stopping threshold
+   * @return if an AST whose reward was >= the early stopping threshold
+   * was encountered, returns a shared_pointer to this AST. If no such
+   * AST has been seen, should return a nullptr
+   */
+  template <class Regressor>
+  std::shared_ptr<AST> simulator<Regressor>::get_ast_within_thresh() {
     return ast_within_thresh_;
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  void simulator<MAB, LossFn, LeafPicker>::reset() {
+  /**
+   * @brief resets the state of the simulator, enabling it to be reused
+   */
+  template <class Regressor>
+  void simulator<Regressor>::reset() {
     ast_within_thresh_ = nullptr;
   }
 
-  template <class MAB, class LossFn, class LeafPicker>
-  std::vector<std::shared_ptr<AST>> simulator<MAB, LossFn, LeafPicker>::dump_pri_q() {
+  /**
+   * @brief puts all of the AST's in the priority queue in a vector and
+   * returns them
+   * @return a vector of shared pointers to ASTs. these ASTs will been among
+   * the top N highest rewarding ASTs encountered in simulation
+   */
+  template <class Regressor>
+  std::vector<std::shared_ptr<AST>> simulator<Regressor>::dump_pri_q() {
     std::vector<std::shared_ptr<AST>> vec;
     auto pair_ary = priq_.dump();
     for (auto& pair : pair_ary) {
@@ -512,8 +656,6 @@ namespace simulator
     return vec;
   } 
 
-}
-}
-}
-
-#endif
+} // simulator
+} // MCTS
+} // symreg
