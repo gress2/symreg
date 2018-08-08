@@ -80,6 +80,9 @@ search_node* choose_move(search_node* node, double terminal_thresh) {
   return moves[random];
 }
 
+/**
+ * @brief the actual coordinator for monte carlo tree search
+ */
 template <class Regressor = symreg::DNN>
 class MCTS {
   private:
@@ -111,7 +114,15 @@ class MCTS {
     training_examples get_training_examples() const;
 };
 
-// composable constructor for testability
+/**
+ * @brief an MCTS constructor which allows you to inject some
+ * arbitrary simulator. likely this is only useful for writing
+ * tests.
+ * @param ds a reference to a dataset
+ * @param simulator a simulator instance
+ * @param num_simulations the number of times you want the simulator
+ * to simulate between moves
+ */
 template <class Regressor>
 MCTS<Regressor>::MCTS(
     dataset& ds,
@@ -129,6 +140,13 @@ MCTS<Regressor>::MCTS(
   simulator_.add_actions(curr_);
 }
 
+/**
+ * @brief .toml configurable MCTS constructor
+ * @param ds a reference to a dataset
+ * @param regr a pointer to a regressor capable of evaluating a search nodes
+ * value and policy
+ * @param cfg a wrapper around a cpptoml table
+ */ 
 template <class Regressor>
 MCTS<Regressor>::MCTS(dataset& ds, Regressor* regr, util::config cfg)
   : num_simulations_(cfg.get<int>("mcts.num_simulations")),
@@ -244,6 +262,13 @@ std::shared_ptr<brick::AST::AST> MCTS<Regressor>::build_current_ast() {
   return simulator::build_ast_upward(curr_);
 }
 
+/**
+ * @brief returns the best AST the search was able to find.
+ * @return if the simulator encountered an AST whose value
+ * was within the early termination threshold, that AST is returned.
+ * otherwise, we simply return the AST that was formed from traditional
+ * move making within the tree.
+ */
 template <class Regressor>
 std::shared_ptr<brick::AST::AST> MCTS<Regressor>::get_result() {
   if (result_ast_) {
@@ -267,12 +292,23 @@ void MCTS<Regressor>::reset() {
   simulator_.reset();
 }
 
+/**
+ * @brief gets a vector dump of the AST priority queue
+ * being maintained by the simulator.
+ * @return a vector of the top N best ASTs encountered
+ * by the simulator
+ */
 template <class Regressor>
 std::vector<std::shared_ptr<brick::AST::AST>> 
   MCTS<Regressor>::get_top_n_asts() {
   return simulator_.dump_pri_q();
 }
 
+/**
+ * @brief a getter for the training_examples needed to
+ * train the regressor/neural network about MCTS states.
+ * @return a copy of the training examples vector
+ */
 template <class Regressor>
 training_examples MCTS<Regressor>::get_training_examples() const {
   return examples_;

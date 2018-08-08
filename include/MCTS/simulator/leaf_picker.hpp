@@ -11,14 +11,14 @@ namespace simulator
 namespace leaf_picker
 {
 
-// LEAF PICKER INTERFACE
-
+/**
+ * @brief an interface for leaf pickers, which are responsible
+ * for finding leaves to expand/rollout during simulation
+ */
 class leaf_picker {
   public:
     virtual search_node* pick(search_node*) = 0; 
 }; 
-
-// RANDOM LEAF PICKER
 
 /**
  * @brief a leaf picker which first builds a vector of all leaves in the
@@ -65,8 +65,11 @@ search_node* random_leaf_picker::pick(search_node* node) {
   return leaves[random];
 }
 
-// RECURSIVE HEURISTIC LEAF PICKER
-
+/**
+ * @brief a leaf picker that recurses down the MCTS tree, and,
+ * at each step, chooses the node with the highest score according
+ * to some scorer.
+ */
 template <class Scorer>
 class recursive_heuristic_child_picker : public leaf_picker {
   private:
@@ -77,12 +80,21 @@ class recursive_heuristic_child_picker : public leaf_picker {
     search_node* pick(search_node*);
 }; 
 
+/**
+ * @brief RHCP constructor
+ * @param scorer a scorer::scorer object
+ */ 
 template <class Scorer>
 recursive_heuristic_child_picker<Scorer>
   ::recursive_heuristic_child_picker(Scorer scorer)
   : scorer_(scorer)
 {}
 
+/**
+ * @brief given a node, finds the child of the node with maximum score
+ * @param node the node which we wish to use to select a child
+ * @return a pointer to the child with maximum score
+ */
 template <class Scorer>
 search_node* recursive_heuristic_child_picker<Scorer>::max_heuristic_node(search_node* node) {
   std::vector<search_node*> moves;
@@ -109,6 +121,12 @@ search_node* recursive_heuristic_child_picker<Scorer>::max_heuristic_node(search
   return moves[random];
 }
 
+/**
+ * @brief iterates down the MCTS tree starting from some node, choosing the 
+ * node which maximizes the heuristic at each step
+ * @param node the node to start from
+ * @return a pointer to the chosen leaf node
+ */
 template <class Scorer>
 search_node* recursive_heuristic_child_picker<Scorer>::pick(search_node* node) {
   while (!node->is_leaf_node()) {
@@ -121,8 +139,6 @@ search_node* recursive_heuristic_child_picker<Scorer>::pick(search_node* node) {
   }
   return node;
 }
-
-// RECURSIVE RANDOM CHILD PICKER
 
 /**
  * @brief a leaf picker which at every level of the tree chooses a child randomly
@@ -170,6 +186,13 @@ search_node* recursive_random_child_picker::pick(search_node* node) {
   return node;
 }
 
+/**
+ * @brief given a string representation of a leaf_picker,
+ * returns the corresponding picker.
+ * @param picker_str a string representation of a leaf picker.
+ * for example: "random_leaf"
+ * @return a shared pointer to the correct leaf picker instance
+ */
 std::shared_ptr<leaf_picker> get(std::string picker_str) {
   std::string rhcp = "recursive_heuristic_child_picker";
   if (picker_str == "random_leaf") {

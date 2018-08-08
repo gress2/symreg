@@ -9,20 +9,31 @@ namespace loss_fn
 
 using ast_ptr = std::shared_ptr<brick::AST::AST>;
 
-// LOSS_FN INTERFACE
-
+/**
+ * @brief a loss function interface. determines the
+ * goodness of fit of an AST to a dataset
+ */
 class loss_fn {
   public:
     virtual double loss(dataset& ds, ast_ptr& ast) = 0;
 };
 
-// MSE
-
+/**
+ * @brief mean squared error
+ */ 
 class MSE : public loss_fn {
   public:
     double loss(dataset&, ast_ptr&); 
 };
 
+/**
+ * @brief calculates the mean squared error
+ * of a dataset evaluated across an AST.
+ * @param ds a reference to a datset
+ * @param ast a complete ast which will be used
+ * to evaluate dataset.x points
+ * @return the mean squared error
+ */
 double MSE::loss(dataset& ds, ast_ptr& ast) {
   double sum = 0;
   for (std::size_t i = 0; i < ds.x.size(); i++) {
@@ -33,8 +44,9 @@ double MSE::loss(dataset& ds, ast_ptr& ast) {
   return mse;
 }
 
-// NRMSD
-
+/**
+ * @brief normalized root mean squared deviation
+ */
 class NRMSD : public loss_fn {
   private:
     MSE mse_;
@@ -42,6 +54,14 @@ class NRMSD : public loss_fn {
     double loss(dataset&, ast_ptr&);
 };
 
+/**
+ * @brief calculates the normalized root mean squared 
+ * deviation of a dataset evaluated across an AST.
+ * @param ds a reference to a datset
+ * @param ast a complete ast which will be used
+ * to evaluate dataset.x points
+ * @return the NRMSD 
+ */
 double NRMSD::loss(dataset& ds, ast_ptr& ast) {
   double RMSD = sqrt(mse_.loss(ds, ast));
   double min = *std::min_element(ds.y.begin(), ds.y.end());
@@ -49,13 +69,22 @@ double NRMSD::loss(dataset& ds, ast_ptr& ast) {
   return RMSD / (max - min);
 }
 
-// MAPE
-
+/**
+ * @brief mean absolute percentage error
+ */
 class MAPE : public loss_fn {
   public:
     double loss(dataset&, ast_ptr&); 
 };
 
+/**
+ * @brief calculates the mean absolute percentage 
+ * error of a dataset evaluated across an AST.
+ * @param ds a reference to a datset
+ * @param ast a complete ast which will be used
+ * to evaluate dataset.x points
+ * @return the MAPE 
+ */
 double MAPE::loss(dataset& ds, ast_ptr& ast) {
   double sum = 0;
   for (std::size_t i = 0; i < ds.x.size(); i++) {
@@ -65,6 +94,13 @@ double MAPE::loss(dataset& ds, ast_ptr& ast) {
   return sum / ds.x.size();
 }
 
+/**
+ * @brief given a string representation of a loss function,
+ * returns a shared pointer to a corresponding function instance
+ * @param loss_fn_str a string representation of a loss function.
+ * for example, "MSE"
+ * @return a shared pointer to a loss function
+ */
 std::shared_ptr<loss_fn> get(std::string loss_fn_str) {
   if (loss_fn_str == "MSE") {
     return std::make_shared<MSE>();

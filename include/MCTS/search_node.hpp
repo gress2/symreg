@@ -12,6 +12,9 @@
 
 namespace symreg
 {
+  /**
+   * @brief the node type which the MCTS tree is composed of
+   */
   class search_node {
     private:
       // MEMBERS
@@ -135,6 +138,7 @@ namespace symreg
       children_.push_back(std::move(child));
     }
 
+    // TODO: remove/change?
     void search_node::set_scorer(std::function<double(double, int, int)> scorer) {
       scorer_ = scorer;
     }
@@ -155,6 +159,7 @@ namespace symreg
       q_ = val;
     }
 
+    // TODO: documentation here
     void search_node::set_p(double val) {
       p_ = val;
     }
@@ -244,11 +249,12 @@ namespace symreg
       return q_;
     }
 
-
+    // TODO: documentation here
     double search_node::get_p() const {
       return p_;
     }
 
+    // TODO: documentation here
     std::vector<double> search_node::get_pi() const {
       std::vector<double> pi;
       for (auto& child : children_) {
