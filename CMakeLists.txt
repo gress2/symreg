@@ -3,9 +3,9 @@ project (symreg VERSION 0.1 LANGUAGES CXX)
 
 set (CMAKE_CXX_STANDARD 17)
 
-set (CMAKE_CXX_FLAGS "-Wfatal-errors -Wall -O3")
-set (CMAKE_CXX_FLAGS_DEBUG "-Wfatal-errors -Wall")
-set (CMAKE_CXX_FLAGS_RELEASE "-Wfatal-errors -O3")
+set (CMAKE_CXX_FLAGS "-ferror-limit=1 -Wfatal-errors -Wall -O3")
+set (CMAKE_CXX_FLAGS_DEBUG "-ferror-limits=1 -Wfatal-errors -Wall")
+set (CMAKE_CXX_FLAGS_RELEASE "-ferror-limit=1 -Wfatal-errors -O3")
 
 set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib")
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib")

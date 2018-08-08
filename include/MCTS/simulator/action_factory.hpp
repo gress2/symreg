@@ -23,7 +23,8 @@ namespace simulator
       std::vector<std::unique_ptr<brick::AST::node>> scalar_set_;
     public:
       action_factory();
-      action_factory(symreg::util::config);
+      action_factory(symreg::util::config&);
+      action_factory(const action_factory&);
       std::vector<std::unique_ptr<brick::AST::node>> get_set(int) const;
       std::unique_ptr<brick::AST::node> get_random(int) const;
       int max_set_size() const;
@@ -108,7 +109,14 @@ namespace simulator
     }
   }
 
-
+  action_factory::action_factory(const action_factory& other) {
+    copy_from(other.binary_set_, this->binary_set_);
+    copy_from(other.unary_set_, this->unary_set_);
+    copy_from(other.function_set_, this->function_set_);
+    copy_from(other.var_set_, this->var_set_);
+    copy_from(other.scalar_set_, this->scalar_set_);
+  }
+  
   /**
    * @brief returns a vector of unique pointers to all possible node types
    *

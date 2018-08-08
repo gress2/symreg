@@ -125,7 +125,7 @@ TEST(SetTargetsFromAST, FindsAllTargetsInIncompleteAST) {
 
 TEST(Rollout, ResultsInValidAST) {
   symreg::search_node node(std::make_unique<brick::AST::posit_node>());
-  symreg::MCTS::simulator::action_factory af(1);
+  symreg::MCTS::simulator::action_factory af;
   
   auto ast = symreg::MCTS::simulator::rollout(&node, 4, af);
   ASSERT_TRUE(ast->is_full());
@@ -133,15 +133,15 @@ TEST(Rollout, ResultsInValidAST) {
 }
 
 TEST(AddActions, AddsNoActionsIfNoAvailableUpLinks) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  symreg::MCTS::simulator::action_factory af(1);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
 
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, af, 4);
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 4, 1, nullptr);
 
   symreg::search_node root(std::make_unique<brick::AST::posit_node>());
   root.add_child(std::make_unique<brick::AST::number_node>(1));
@@ -152,15 +152,15 @@ TEST(AddActions, AddsNoActionsIfNoAvailableUpLinks) {
 }
 
 TEST(AddActions, AddsActionsAccordingToDepthLimit1) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  auto action_factory = symreg::MCTS::simulator::action_factory(1);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
 
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, action_factory, 4);
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 4, 1, nullptr);
 
   symreg::search_node root(std::make_unique<brick::AST::posit_node>());
   root.add_child(std::make_unique<brick::AST::addition_node>());
@@ -177,15 +177,15 @@ TEST(AddActions, AddsActionsAccordingToDepthLimit1) {
 }
 
 TEST(AddActions, AddsActionsAccordingToDepthLimit2) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  auto action_factory = symreg::MCTS::simulator::action_factory(1);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
 
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, action_factory, 9);
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 9, 1, nullptr);
 
   symreg::search_node root(std::make_unique<brick::AST::posit_node>());
   root.add_child(std::make_unique<brick::AST::addition_node>());
@@ -196,21 +196,20 @@ TEST(AddActions, AddsActionsAccordingToDepthLimit2) {
   addition.set_depth(2);
   addition.set_unconnected(2);
   ASSERT_TRUE(sim.add_actions(&addition));
-  symreg::MCTS::simulator::action_factory af(1);
   ASSERT_EQ(addition.get_children().size(), af.get_set(100).size()); 
 }
 
 TEST(Simulate, ExpandsTreeIfPossible) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  auto action_factory = symreg::MCTS::simulator::action_factory(1);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
 
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, action_factory, 9);
-
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 9, 1, nullptr);
+  
   symreg::search_node root(std::make_unique<brick::AST::posit_node>());
   root.add_child(std::make_unique<brick::AST::addition_node>());
   root.set_depth(1);
@@ -227,15 +226,15 @@ TEST(Simulate, ExpandsTreeIfPossible) {
 }
 
 TEST(Simulate, DoesntExpandTreeIfDepthMaximized) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   symreg::dataset ds;
   ds.x = {1, 2, 3};
   ds.y = {4, 5, 6};
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  auto action_factory = symreg::MCTS::simulator::action_factory(1);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
 
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, action_factory, 2);
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 2, 1, nullptr);
 
   symreg::search_node root(std::make_unique<brick::AST::posit_node>());
   root.add_child(std::make_unique<brick::AST::number_node>(1));

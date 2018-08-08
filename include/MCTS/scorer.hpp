@@ -2,6 +2,8 @@
 
 namespace symreg
 {
+namespace MCTS
+{
 namespace scorer 
 {
 
@@ -46,4 +48,5 @@ std::shared_ptr<scorer> get(std::string scorer_str) {
 }
 
 } // scorer
+} // MCTS
 } // symreg

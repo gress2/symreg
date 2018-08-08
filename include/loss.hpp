@@ -2,8 +2,6 @@
 
 namespace symreg
 {
-namespace MCTS
-{
 namespace loss_fn
 {
 
@@ -114,6 +112,5 @@ std::shared_ptr<loss_fn> get(std::string loss_fn_str) {
 }
 
 } // loss
-} // MCTS
 } // symreg
 

@@ -319,7 +319,7 @@ namespace simulator
    * @param _scorer a shared pointer to a search node scorer 
    * @return a pointer to the second highest scoring search node
    */
-  search_node* get_second_highest(search_node* node, std::shared_ptr<symreg::scorer::scorer>& _scorer) {
+  search_node* get_second_highest(search_node* node, std::shared_ptr<scorer::scorer>& _scorer) {
     search_node* parent = node->get_parent();
     search_node* second_highest = nullptr;
     double max_score = -1; 
@@ -342,7 +342,7 @@ namespace simulator
    * @param node the highest scoring terminal node which needs its visit count increased
    * @param _scorer a shared pointer to a search_node scorer
    */
-  void inflate_visit_count(search_node* node, std::shared_ptr<symreg::scorer::scorer>& _scorer) {
+  void inflate_visit_count(search_node* node, std::shared_ptr<scorer::scorer>& _scorer) {
     search_node* second_highest = get_second_highest(node, _scorer);
     if (second_highest) {
       auto scorer_lambda = [&] (double child_val, int child_n, int parent_n) {
@@ -431,6 +431,7 @@ namespace simulator
       depth_limit_(8),
       early_term_thresh_(.999),
       ast_within_thresh_(nullptr),
+      priq_(priq_cmp, priq_elem_sign),
       regr_(nullptr)
   {}
       
@@ -472,6 +473,7 @@ namespace simulator
       depth_limit_(depth_limit),
       early_term_thresh_(early_term_thresh),
       ast_within_thresh_(nullptr),
+      priq_(priq_cmp, priq_elem_sign),
       regr_(regr)
   {}
 

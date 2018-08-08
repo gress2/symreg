@@ -12,11 +12,11 @@
 
 #include "brick.hpp"
 #include "dataset.hpp"
+#include "loss.hpp"
 #include "training_example.hpp"
-#include "MCTS/search_node.hpp"
-#include "MCTS/scorer.hpp"
-#include "MCTS/loss.hpp"
 #include "util.hpp"
+#include "MCTS/scorer.hpp"
+#include "MCTS/search_node.hpp"
 #include "MCTS/simulator/simulator.hpp"
 
 #define LOG_LEVEL 1

@@ -26,28 +26,28 @@ TEST(ChooseMove, ChoosesCorrectNodes) {
 }
 
 TEST(Iterate, ResultsInValidASTs) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  auto af = symreg::MCTS::simulator::action_factory(1);
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, af, 5);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 5, 1, nullptr);
 
-  auto mcts = symreg::MCTS::MCTS(200, ds, sim); 
+  auto mcts = symreg::MCTS::MCTS(ds, sim, 200); 
   mcts.iterate();
   auto ast = mcts.get_result(); 
   ASSERT_TRUE(ast->is_full());
 }
 
 TEST(Reset, ResultsInRootOnlyState) {
-  auto mab = symreg::MCTS::score::UCB1;
+  auto mab = std::make_shared<symreg::MCTS::scorer::UCB1>();
   auto ds = symreg::generate_dataset([](int x) { return x; }, 5, 1, 6);
-  auto loss = symreg::MCTS::loss::bind_loss_fn(symreg::MCTS::loss::NRMSD, ds); 
-  auto lp = symreg::MCTS::simulator::recursive_random_child_picker();
-  auto af = symreg::MCTS::simulator::action_factory(1);
-  symreg::MCTS::simulator::simulator sim(mab, loss, lp, af, 5);
+  auto loss = std::make_shared<symreg::loss_fn::NRMSD>();
+  auto lp = std::make_shared<symreg::MCTS::simulator::leaf_picker::recursive_random_child_picker>();
+  symreg::MCTS::simulator::action_factory af;
+  symreg::MCTS::simulator::simulator<symreg::DNN> sim(mab, loss, lp, af, ds, 5, 1, nullptr);
 
-  auto mcts = symreg::MCTS::MCTS(200, ds, sim); 
+  auto mcts = symreg::MCTS::MCTS(ds, sim, 200); 
   mcts.iterate();
   mcts.reset();
   auto ast = mcts.get_result();
