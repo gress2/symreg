@@ -219,6 +219,13 @@ namespace simulator
     }
   }
 
+  /**
+   * @brief loop up a path in the MCTS tree, increasing visit count by
+   * the passed value and each search node
+   *
+   * @param value the value to increase the nodes' visit counts by
+   * @param curr the node to start increasing from
+   */
   void increase_visit_upward(int value, search_node* curr) {
     while (curr) {
       curr->set_n(curr->get_n() + value);
@@ -226,56 +233,66 @@ namespace simulator
     }
   }
 
-  template <class F, class TN, class TV, class... Args>
-  constexpr TN compute_tipping_point(
-    F&& function,
-    TV vterminal,
-    TN nterminal,
-    TV vother,
-    TN nother,
-    TN ntotal,
+  /**
+   * @brief uses secant method to find the number of times the highest
+   * scored node must be visited before starting to visit the next
+   * highest scoring node.
+   *
+   * @param function scoring function lambda
+   * @param q_term the q value of the highest scored node
+   * @param n_term the visit count of the highest scored node
+   * @param q_other the q value of the second highest scoring node
+   * @param n_other the visit count of the second highest scoring node 
+   * @param args a parameter pack for whatever else the scoring function may require
+   * @return the visit count which will cause the highest scoring node to become the
+   * second highest scoring node
+   */
+  template <class ScoreFn, class... Args>
+  constexpr int compute_tipping_point(
+    ScoreFn&& function,
+    double q_term,
+    int n_term,
+    double q_other,
+    int n_other,
+    int n_total,
     Args&&... args
   )
   {
     // Types and constants
-    static_assert(std::is_floating_point<TV>::value);
-    static_assert(std::is_arithmetic<TN>::value);
-    using floating_point = TV;
-    using integer = TN;
-    constexpr floating_point min = std::numeric_limits<floating_point>::min();
-    constexpr floating_point max = std::numeric_limits<integer>::max();
+    constexpr double min = std::numeric_limits<double>::min();
+    constexpr double max = std::numeric_limits<int>::max();
 
     // Functions
-    const integer n = ntotal - nother - nterminal;
+    const int n = n_total - n_other - n_term;
     auto difference = [=, &function, &args...](auto x) {
-      const auto fterminal = std::forward<F>(function)(
-        vterminal,
+      const auto f_terminal = std::forward<ScoreFn>(function)(
+        q_term,
         x,
-        x + nother + n,
+        x + n_other + n,
         std::forward<Args>(args)...
       );
-      const auto fother = std::forward<F>(function)(
-        vother,
-        nother,
-        x + nother + n,
+      const auto f_other = std::forward<ScoreFn>(function)(
+        q_other,
+        n_other,
+        x + n_other + n,
         std::forward<Args>(args)...
       );
-      return fterminal - fother;
+      return f_terminal - f_other;
     };
 
     // Initialization
-    bool ok = nterminal > 0 && nother > 0 && nterminal + nother <= ntotal;
-    floating_point x0 = 0;
-    floating_point x1 = nterminal;
-    floating_point x2 = nother;
-    floating_point f0 = 0;
-    floating_point f1 = 0;
-    integer n0 = 0;
-    integer n1 = std::ceil(x1);
+    bool ok = n_term > 0 && n_other > 0 && n_term + n_other <= n_total;
+    double x0 = 0;
+    double x1 = n_term;
+    double x2 = n_other;
+    double f0 = 0;
+    double f1 = 0;
+    int n0 = 0;
+    int n1 = std::ceil(x1);
     bool stabilized = false;
 
     // Secant method
-    if (ok && difference(nterminal) > 0) {
+    if (ok && difference(n_term) > 0) {
       f1 = difference(x1);
       do {
         x0 = x1;
@@ -288,13 +305,20 @@ namespace simulator
         stabilized = std::signbit(f0 * f1) && n0 == n1;
       } while(!stabilized && std::isnormal(x2 - x1) && x2 < max);
       if (stabilized || std::abs(x2 - x1) < min || std::abs(f1 - f0) < min) {
-        nterminal = std::max(nterminal, n1);
+        n_term = std::max(n_term, n1);
       }
     }
 
-    return nterminal;
+    return n_term;
   }
 
+  /**
+   * @brief given a parent node, find the second highest scoring child node
+   *
+   * @param node the parent node for whose children we are interested in
+   * @param _scorer a shared pointer to a search node scorer 
+   * @return a pointer to the second highest scoring search node
+   */
   search_node* get_second_highest(search_node* node, std::shared_ptr<symreg::scorer::scorer>& _scorer) {
     search_node* parent = node->get_parent();
     search_node* second_highest = nullptr;
@@ -312,6 +336,12 @@ namespace simulator
     return second_highest;
   }
 
+  /**
+   * @brief inflates the visit count of a highest scoring terminal node to avoid wasting simulations
+   *
+   * @param node the highest scoring terminal node which needs its visit count increased
+   * @param _scorer a shared pointer to a search_node scorer
+   */
   void inflate_visit_count(search_node* node, std::shared_ptr<symreg::scorer::scorer>& _scorer) {
     search_node* second_highest = get_second_highest(node, _scorer);
     if (second_highest) {
@@ -342,6 +372,9 @@ namespace simulator
 
   // SIMULATOR
 
+  /**
+   *
+   */ 
   template <class Regressor = symreg::DNN>
   class simulator {
     private:
