@@ -17,10 +17,19 @@ int main(int argc, char* argv[]) {
 
   symreg::loss_fn::MSE loss;
 
+  std::cout << "Searching for expressions fitting data generated from f(x) = ";
+  std::cout << cfg.get<std::string>("dataset.function") << std::endl << std::endl;
+
   auto top_n = mcts.get_top_n_asts();
+  int i = top_n.size();
+  std::size_t num_explored = mcts.get_num_explored();
+  std::cout << "After exploring " << num_explored << " ASTs, here are the best ";
+  std::cout << i << " expressions I found:" << std::endl; 
+
   for (auto& ast : top_n) {
-    std::cout << ast->to_string() << std::endl;
-    std::cout << (loss.loss(ds, ast)) << std::endl;
+    std::cout << "[" << i << "] expr: " << ast->to_string();
+    std::cout << " MSE: " << loss.loss(ds, ast) << std::endl; 
+    i--;
   }
 
   return 0;

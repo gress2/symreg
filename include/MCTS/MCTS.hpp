@@ -112,6 +112,7 @@ class MCTS {
     std::shared_ptr<brick::AST::AST> get_result();
     std::vector<std::shared_ptr<brick::AST::AST>> get_top_n_asts();
     training_examples get_training_examples() const;
+    std::size_t get_num_explored() const;
 };
 
 /**
@@ -312,6 +313,11 @@ std::vector<std::shared_ptr<brick::AST::AST>>
 template <class Regressor>
 training_examples MCTS<Regressor>::get_training_examples() const {
   return examples_;
+}
+
+template <class Regressor>
+std::size_t MCTS<Regressor>::get_num_explored() const {
+  return simulator_.get_num_explored();
 }
   
 }

@@ -389,8 +389,9 @@ namespace simulator
       double early_term_thresh_;
       std::shared_ptr<AST> ast_within_thresh_;
       fixed_priority_queue<priq_elem_type, 
-        decltype(priq_cmp), decltype(priq_elem_sign), 20> priq_; 
+        decltype(priq_cmp), decltype(priq_elem_sign)> priq_; 
       Regressor* regr_;
+      std::size_t num_explored_;
     public:
       // for convenience
       simulator(dataset&);
@@ -413,6 +414,7 @@ namespace simulator
       std::shared_ptr<AST> get_ast_within_thresh();
       void reset();
       std::vector<std::shared_ptr<AST>> dump_pri_q();
+      std::size_t get_num_explored() const;
   };
 
   /**
@@ -431,8 +433,9 @@ namespace simulator
       depth_limit_(8),
       early_term_thresh_(.999),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp, priq_elem_sign),
-      regr_(nullptr)
+      priq_(priq_cmp, priq_elem_sign, 10),
+      regr_(nullptr),
+      num_explored_(0)
   {}
       
   /**
@@ -473,8 +476,9 @@ namespace simulator
       depth_limit_(depth_limit),
       early_term_thresh_(early_term_thresh),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp, priq_elem_sign),
-      regr_(regr)
+      priq_(priq_cmp, priq_elem_sign, 10),
+      regr_(regr),
+      num_explored_(0)
   {}
 
   /**
@@ -498,8 +502,9 @@ namespace simulator
       depth_limit_(cfg.get<int>("mcts.depth_limit")),
       early_term_thresh_(cfg.get<double>("mcts.early_term_thresh")),
       ast_within_thresh_(nullptr),
-      priq_(priq_cmp, priq_elem_sign),
-      regr_(regr)
+      priq_(priq_cmp, priq_elem_sign, cfg.get<int>("mcts.top_N")),
+      regr_(regr),
+      num_explored_(0)
   {}
 
   /**
@@ -590,6 +595,7 @@ namespace simulator
         } 
       }
 
+      num_explored_++;
       double value;
 
       if (regr_) {
@@ -638,6 +644,7 @@ namespace simulator
   template <class Regressor>
   void simulator<Regressor>::reset() {
     ast_within_thresh_ = nullptr;
+    num_explored_ = 0;
   }
 
   /**
@@ -649,12 +656,17 @@ namespace simulator
   template <class Regressor>
   std::vector<std::shared_ptr<AST>> simulator<Regressor>::dump_pri_q() {
     std::vector<std::shared_ptr<AST>> vec;
-    auto pair_ary = priq_.dump();
-    for (auto& pair : pair_ary) {
+    auto pair_vec = priq_.dump();
+    for (auto& pair : pair_vec) {
       vec.push_back(pair.first);
     }
     return vec;
   } 
+
+  template <class Regressor>
+  std::size_t simulator<Regressor>::get_num_explored() const {
+    return num_explored_;
+  }
 
 } // simulator
 } // MCTS
