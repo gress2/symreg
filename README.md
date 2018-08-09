@@ -36,3 +36,31 @@ After exploring 8069 ASTs, here are the best 10 expressions I found:
 [2] expr: (((x-4)*x)+x) MSE: 3349
 [1] expr: ((5+((x-5)*x))+x) MSE: 4
 ```
+Based on a config that looks something like this:
+```toml
+[dataset]
+function = "x^2-4*x+3"
+xmin = -100
+xmax = 100
+n = 100
+
+[mcts]
+num_simulations = 1500
+scorer = "UCB1"
+loss_fn = "MAPE"
+leaf_picker = "recursive_heuristic_child_picker<UCB1>"
+early_term_thresh = 0.999
+depth_limit = 10
+top_N = 10
+
+[actions]
+binary = ["addition", "subtraction", "multiplication", "division", "exponentiation"] 
+unary = ["negate"]
+functions = []
+vars = ["x"]
+scalar_min = 1
+scalar_max = 5
+
+[logging]
+file = "somelog.log"
+```
