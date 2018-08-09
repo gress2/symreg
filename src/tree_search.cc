@@ -15,9 +15,12 @@ int main(int argc, char* argv[]) {
   symreg::MCTS::MCTS<symreg::DNN> mcts(ds, nullptr, cfg);
   mcts.iterate();
 
+  symreg::loss_fn::MSE loss;
+
   auto top_n = mcts.get_top_n_asts();
   for (auto& ast : top_n) {
     std::cout << ast->to_string() << std::endl;
+    std::cout << (loss.loss(ds, ast)) << std::endl;
   }
 
   return 0;

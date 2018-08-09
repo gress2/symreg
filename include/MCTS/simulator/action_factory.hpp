@@ -40,7 +40,7 @@ namespace simulator
     binary_set_.push_back(std::make_unique<brick::AST::multiplication_node>());
     binary_set_.push_back(std::make_unique<brick::AST::division_node>());
     unary_set_.push_back(std::make_unique<brick::AST::negate_node>());
-    var_set_.push_back(std::make_unique<brick::AST::id_node>("_x0"));
+    var_set_.push_back(std::make_unique<brick::AST::id_node>("x"));
     scalar_set_.push_back(std::make_unique<brick::AST::number_node>(2));
     scalar_set_.push_back(std::make_unique<brick::AST::number_node>(3));
     scalar_set_.push_back(std::make_unique<brick::AST::number_node>(4));
@@ -67,6 +67,8 @@ namespace simulator
         binary_set_.push_back(std::make_unique<brick::AST::multiplication_node>());
       } else if (elem == "division") {
         binary_set_.push_back(std::make_unique<brick::AST::division_node>());
+      } else if (elem == "exponentiation") {
+        binary_set_.push_back(std::make_unique<brick::AST::exponentiation_node>());
       }
     }
 
