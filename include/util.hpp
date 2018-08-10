@@ -9,6 +9,15 @@ namespace symreg
 namespace util
 {
 
+template <class T>
+std::vector<T> numerical_derivative(std::vector<T>& vec, double step_size) {
+  std::vector<T> deriv;
+  for (int i = 0; i < vec.size() - 1; i++) {
+    deriv.push_back(vec[i + 1] - vec[i] / step_size); 
+  }
+  return deriv;
+}
+
 /**
  * @brief a wrapper around cpptoml::table 
  * with some added convenience methods for more

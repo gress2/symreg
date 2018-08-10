@@ -583,8 +583,7 @@ namespace simulator
 
       if (leaf->is_visited()) {
         if (leaf->is_dead_end()) {
-          //inflate_visit_count(leaf, scorer_);
-          leaf->set_n(leaf->get_n() + 1);
+          inflate_visit_count(leaf, scorer_);
           continue;
         } else if (add_actions(leaf)) {
           auto& children = leaf->get_children();

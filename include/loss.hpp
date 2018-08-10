@@ -21,8 +21,18 @@ class loss_fn {
  */ 
 class MSE : public loss_fn {
   public:
+    double loss(std::vector<double>&, std::vector<double>&);
     double loss(dataset&, ast_ptr&); 
 };
+
+double MSE::loss(std::vector<double>& a, std::vector<double>& b) {
+  assert(a.size() == b.size());
+  double sum = 0;
+  for (std::size_t i = 0; i < a.size(); i++) {
+    sum += std::pow(a[i] - b[i], 2);
+  }
+  return sum / a.size();
+}
 
 /**
  * @brief calculates the mean squared error
@@ -33,13 +43,12 @@ class MSE : public loss_fn {
  * @return the mean squared error
  */
 double MSE::loss(dataset& ds, ast_ptr& ast) {
-  double sum = 0;
+  std::vector<double>& a = ds.y;
+  std::vector<double> b;
   for (std::size_t i = 0; i < ds.x.size(); i++) {
-     auto& xi = ds.x[i];
-     sum += std::pow(ast->eval(xi) - ds.y[i], 2); 
-  }
-  double mse = sum / ds.x.size();
-  return mse;
+    b.push_back(ast->eval(ds.x[i]));
+  } 
+  return loss(a, b);
 }
 
 /**
