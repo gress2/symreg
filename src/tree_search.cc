@@ -24,10 +24,10 @@ int main(int argc, char* argv[]) {
   int i = top_n.size();
   std::size_t num_explored = mcts.get_num_explored();
   std::cout << "After exploring " << num_explored << " ASTs, here are the best ";
-  std::cout << i << " expressions I found:" << std::endl; 
+  std::cout << i << " expressions found according to the loss function used:" << std::endl; 
 
   for (auto& ast : top_n) {
-    std::cout << "[" << i << "] expr: " << ast->to_string();
+    std::cout << "[" << i << "] expr: " << ast->to_string().substr(1);
     std::cout << " MSE: " << loss.loss(ds, ast) << std::endl; 
     i--;
   }
