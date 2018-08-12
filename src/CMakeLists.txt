@@ -13,12 +13,3 @@ target_include_directories (ranker PRIVATE ${include_dir})
 target_link_libraries (ranker brick_ast)
 target_link_libraries (ranker dlib::dlib)
 
-add_executable (spearman spearman.cc)
-target_include_directories (spearman PRIVATE ${include_dir})
-target_link_libraries (spearman brick_ast)
-target_link_libraries (spearman dlib::dlib)
-
-
-
-
-
