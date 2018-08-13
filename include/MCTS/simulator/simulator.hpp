@@ -603,9 +603,6 @@ namespace simulator
       } else {
         auto rollout_ast = rollout(leaf, depth_limit_, action_factory_);
         value = 1 - loss_fn_->loss(ds_, rollout_ast);
-        if (std::isnan(value) || std::isinf(value)) {
-          value = 0;
-        }
         priq_.push(std::make_pair(rollout_ast, value));
         backprop(value, leaf);
         if (value > early_term_thresh_) {

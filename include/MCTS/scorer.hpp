@@ -13,6 +13,7 @@ namespace scorer
 class scorer {
   public:
     virtual double score(double, int, int) = 0;
+    virtual double score(double, int, int, double) = 0;
 };
 
 /**
@@ -21,6 +22,7 @@ class scorer {
 class UCB1 : public scorer {
   public:
     double score(double, int, int);
+    double score(double, int, int, double);
 };
 
 /**
@@ -32,6 +34,10 @@ class UCB1 : public scorer {
  */
 double UCB1::score(double child_val, int child_n, int parent_n) {
   return child_val + sqrt(2 * log(parent_n) / child_n);
+}
+
+double UCB1::score(double child_val, int child_n, int parent_n, double avg_child_val) {
+  return child_val + avg_child_val * sqrt(log(parent_n) / child_n); 
 }
 
 /**

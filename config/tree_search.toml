@@ -5,9 +5,9 @@ xmax = 100
 n = 100
 
 [mcts]
-num_simulations = 1500
+num_simulations = 2500
 scorer = "UCB1"
-loss_fn = "MAPE"
+loss_fn = "NRMSD"
 leaf_picker = "recursive_heuristic_child_picker<UCB1>"
 early_term_thresh = 0.999
 depth_limit = 10
