@@ -37,6 +37,7 @@ double UCB1::score(double child_val, int child_n, int parent_n) {
 }
 
 double UCB1::score(double child_val, int child_n, int parent_n, double avg_child_val) {
+  avg_child_val = std::max(sqrt(2), avg_child_val);
   return child_val + avg_child_val * sqrt(log(parent_n) / child_n); 
 }
 

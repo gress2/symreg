@@ -25,12 +25,62 @@ void loss_fn::limit_loss(double& loss, const double& max_loss) {
   }
 }
 
+class colling : public loss_fn {
+  private:
+    constexpr static double max_loss_ = 1e100;
+  public:
+    double loss(dataset&, ast_ptr&);
+};
+
+double colling::loss(dataset& ds, ast_ptr& ast) {
+  return 0;
+};
+
+
+/**
+ * @brief mean squared error
+ */ 
+class MAE : public loss_fn {
+  private:
+    constexpr static double max_loss_ = 1e100;
+  public:
+    double loss(std::vector<double>&, std::vector<double>&);
+    double loss(dataset&, ast_ptr&); 
+};
+
+double MAE::loss(std::vector<double>& a, std::vector<double>& b) {
+  double sum = 0;
+  for (std::size_t i = 0; i < a.size(); i++) {
+    sum += std::abs(a[i] - b[i]);
+  }
+  auto res = sum / a.size();
+  limit_loss(res, max_loss_);
+  return res;
+}
+
+/**
+ * @brief calculates the mean squared error
+ * of a dataset evaluated across an AST.
+ * @param ds a reference to a datset
+ * @param ast a complete ast which will be used
+ * to evaluate dataset.x points
+ * @return the mean squared error
+ */
+double MAE::loss(dataset& ds, ast_ptr& ast) {
+  std::vector<double>& a = ds.y;
+  std::vector<double> b;
+  for (std::size_t i = 0; i < ds.x.size(); i++) {
+    b.push_back(ast->eval(ds.x[i]));
+  } 
+  return loss(a, b);
+}
+
 /**
  * @brief mean squared error
  */ 
 class MSE : public loss_fn {
   private:
-    constexpr static double max_loss_ = 1e10;
+    constexpr static double max_loss_ = 1e100;
   public:
     double loss(std::vector<double>&, std::vector<double>&);
     double loss(dataset&, ast_ptr&); 
@@ -68,7 +118,7 @@ double MSE::loss(dataset& ds, ast_ptr& ast) {
  */
 class NRMSD : public loss_fn {
   private:
-    constexpr static double max_loss_ = 1e10;
+    constexpr static double max_loss_ = 1e100;
     MSE mse_;
   public:
     double loss(dataset&, ast_ptr&);
@@ -134,6 +184,8 @@ std::shared_ptr<loss_fn> get(std::string loss_fn_str) {
     return std::make_shared<NRMSD>();
   } else if (loss_fn_str == "MAPE") {
     return std::make_shared<MAPE>();
+  } else if (loss_fn_str == "MASE") {
+    return std::make_shared<MAE>();
   } else {
     return std::make_shared<MAPE>();
   }

@@ -322,12 +322,12 @@ namespace simulator
   search_node* get_second_highest(search_node* node, std::shared_ptr<scorer::scorer>& _scorer) {
     search_node* parent = node->get_parent();
     search_node* second_highest = nullptr;
-    double max_score = -1; 
+    double max_score = -std::numeric_limits<double>::max(); 
     for (auto& child : parent->get_children()) {
       if (&child == node) {
         continue;
       }
-      auto score = _scorer->score(child.get_q(), child.get_n(), parent->get_n());
+      auto score = _scorer->score(child.get_q(), child.get_n(), parent->get_n(), parent->get_avg_child_q());
       if (score > max_score) {
         max_score = score;
         second_highest = &child;
@@ -345,13 +345,13 @@ namespace simulator
   void inflate_visit_count(search_node* node, std::shared_ptr<scorer::scorer>& _scorer) {
     search_node* second_highest = get_second_highest(node, _scorer);
     if (second_highest) {
-      auto scorer_lambda = [&] (double child_val, int child_n, int parent_n) {
-        return _scorer->score(child_val, child_n, parent_n);
+      auto scorer_lambda = [&] (double child_val, int child_n, int parent_n, double avg_child_q) {
+        return _scorer->score(child_val, child_n, parent_n, avg_child_q);
       };
 
       auto tipping_point = compute_tipping_point(
           scorer_lambda, node->get_q(), node->get_n(), second_highest->get_q(),
-          second_highest->get_n(), node->get_parent()->get_n()
+          second_highest->get_n(), node->get_parent()->get_n(), node->get_parent()->get_avg_child_q()
       ); 
       int inflate_value = tipping_point - node->get_n();
       increase_visit_upward(inflate_value == 0 ? 1 : inflate_value, node);
@@ -575,6 +575,7 @@ namespace simulator
    */
   template <class Regressor>
   void simulator<Regressor>::simulate(search_node* curr, int num_sim) {
+    std::cout << "simulate..." << std::endl;
     for (int i = 0; i < num_sim; i++) {
       search_node* leaf = leaf_picker_->pick(curr);
       if (!leaf) {
@@ -606,6 +607,7 @@ namespace simulator
         priq_.push(std::make_pair(rollout_ast, value));
         backprop(value, leaf);
         if (value > early_term_thresh_) {
+          std::cout << "umm.." << std::endl;
           ast_within_thresh_ = rollout_ast;
           break;
         }

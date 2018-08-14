@@ -108,7 +108,7 @@ search_node* recursive_heuristic_child_picker<Scorer>::max_heuristic_node(search
       moves.push_back(&child);
       continue;
     }
-    double score = scorer_.score(child.get_q(), child.get_n(), node->get_n());
+    double score = scorer_.score(child.get_q(), child.get_n(), node->get_n(), node->get_avg_child_q());
     if (score > max) {
       max = score;
       moves.clear();

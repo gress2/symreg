@@ -61,6 +61,7 @@ namespace symreg
       std::unique_ptr<brick::AST::node>& get_ast_node();
       bool is_visited() const;
       bool is_dead_end() const;
+      double get_avg_child_q() const;
   };
   
   /**
@@ -336,6 +337,14 @@ namespace symreg
      */
      bool search_node::is_dead_end() const {
       return is_dead_end_;
+    }
+
+    double search_node::get_avg_child_q() const {
+      double sum = 0;
+      for (auto& child : children_) {
+        sum += child.get_q();
+      }
+      return sum / children_.size();
     }
 
 }
