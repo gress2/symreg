@@ -25,17 +25,6 @@ void loss_fn::limit_loss(double& loss, const double& max_loss) {
   }
 }
 
-class colling : public loss_fn {
-  private:
-    constexpr static double max_loss_ = 1e100;
-  public:
-    double loss(dataset&, ast_ptr&);
-};
-
-double colling::loss(dataset& ds, ast_ptr& ast) {
-  return 0;
-};
-
 
 /**
  * @brief mean squared error
@@ -122,6 +111,7 @@ class NRMSD : public loss_fn {
     MSE mse_;
   public:
     double loss(dataset&, ast_ptr&);
+    double loss(std::vector<double>&, std::vector<double>&);
 };
 
 /**
@@ -141,6 +131,15 @@ double NRMSD::loss(dataset& ds, ast_ptr& ast) {
   return res;
 }
 
+double NRMSD::loss(std::vector<double>& y, std::vector<double>& y_hat) {
+  double RMSD = sqrt(mse_.loss(y, y_hat));
+  double min = *std::min_element(y.begin(), y.end());
+  double max = *std::max_element(y.begin(), y.end());
+  double res = RMSD / (max - min);
+  limit_loss(res, max_loss_);
+  return res;
+}
+
 /**
  * @brief mean absolute percentage error
  */
@@ -149,6 +148,7 @@ class MAPE : public loss_fn {
     constexpr static double max_loss_ = 1;
   public:
     double loss(dataset&, ast_ptr&); 
+    double loss(std::vector<double>&, std::vector<double>&);
 };
 
 /**
@@ -170,6 +170,39 @@ double MAPE::loss(dataset& ds, ast_ptr& ast) {
   return res;
 }
 
+double MAPE::loss(std::vector<double>& y, std::vector<double>& y_hat) {
+  double sum = 0;
+  for (std::size_t i = 0; i < y.size(); i++) {
+    sum += (y_hat[i] + y[i] == 0) ? 0 :
+      std::abs((y[i] - y_hat[i]) / (y[i] + y_hat[i]));
+  }
+  double res = sum / y.size();
+  limit_loss(res, max_loss_);
+  return res;
+}
+
+class colling : public loss_fn {
+  private:
+    NRMSD nrmsd_;
+    constexpr static double max_loss_ = 1e100;
+  public:
+    double loss(dataset&, ast_ptr&);
+};
+
+double colling::loss(dataset& ds, ast_ptr& ast) {
+  std::vector<double>& y = ds.y;
+  std::vector<double>& x = ds.x;
+  int step_size = x[1] - x[0]; 
+  std::vector<double> d_y = util::numerical_derivative(y, step_size);
+  std::vector<double> y_hat;
+  for (std::size_t i = 0; i < x.size(); i++) {
+    y_hat.push_back(ast->eval(x[i]));
+  }
+  std::vector<double> d_y_hat = util::numerical_derivative(y_hat, step_size);
+  auto l = .5 * nrmsd_.loss(y, y_hat) + .5 * nrmsd_.loss(d_y, d_y_hat);
+  limit_loss(l, max_loss_);
+  return l;
+};
 /**
  * @brief given a string representation of a loss function,
  * returns a shared pointer to a corresponding function instance
@@ -186,6 +219,8 @@ std::shared_ptr<loss_fn> get(std::string loss_fn_str) {
     return std::make_shared<MAPE>();
   } else if (loss_fn_str == "MASE") {
     return std::make_shared<MAE>();
+  } else if (loss_fn_str == "colling") {
+    return std::make_shared<colling>(); 
   } else {
     return std::make_shared<MAPE>();
   }

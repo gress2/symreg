@@ -1,26 +1,25 @@
 [dataset]
-function = "x^2-4*x+3"
-xmin = -100
-xmax = 100
-n = 100
+function = "x^2+3*x"
+xmin = -300
+xmax = 300
+n = 300
 
 [mcts]
-num_simulations = 3000
+num_simulations = 2000
 scorer = "UCB1"
-loss_fn = "MAPE"
+loss_fn = "NRMSD"
 leaf_picker = "recursive_heuristic_child_picker<UCB1>"
 early_term_thresh = 1
 depth_limit = 9
 top_N = 10
-use_numerical_derivative = true
 
 [actions]
 binary = ["addition", "subtraction", "multiplication", "division", "exponentiation"] 
 unary = ["negate"]
 functions = []
 vars = ["x"]
-scalar_min = 1
-scalar_max = 5
+scalar_min = 2
+scalar_max = 4
 
 [logging]
 file = "somelog.log"
