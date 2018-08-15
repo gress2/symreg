@@ -415,6 +415,8 @@ namespace simulator
       void reset();
       std::vector<std::shared_ptr<AST>> dump_pri_q();
       std::size_t get_num_explored() const;
+      void push_priq(std::shared_ptr<AST> ast); 
+      double get_reward(std::shared_ptr<AST> ast);
   };
 
   /**
@@ -603,7 +605,7 @@ namespace simulator
         backprop(value, leaf);
       } else {
         auto rollout_ast = rollout(leaf, depth_limit_, action_factory_);
-        value = 1 - loss_fn_->loss(ds_, rollout_ast);
+        value = get_reward(rollout_ast);
         priq_.push(std::make_pair(rollout_ast, value));
         backprop(value, leaf);
         if (value > early_term_thresh_) {
@@ -664,6 +666,16 @@ namespace simulator
   template <class Regressor>
   std::size_t simulator<Regressor>::get_num_explored() const {
     return num_explored_;
+  }
+
+  template <class Regressor>
+  double simulator<Regressor>::get_reward(std::shared_ptr<AST> ast) {
+    return 1 - loss_fn_->loss(ds_, ast);
+  }
+
+  template <class Regressor>
+  void simulator<Regressor>::push_priq(std::shared_ptr<AST> ast) {
+    priq_.push(std::make_pair(ast, get_reward(ast)));
   }
 
 } // simulator

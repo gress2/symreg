@@ -199,13 +199,21 @@ void MCTS<Regressor>::iterate() {
     }
     i++;
   }
+
+  if (result_ast_) {
+    simulator_.push_priq(result_ast_);
+  } else {
+    simulator_.push_priq(build_current_ast());
+  }
+
+  pull_top_asts_from_priq();
+
   // assign rewards to examples
   auto final_ast = get_result();
-  auto final_reward = 3; 
+  auto final_reward = simulator_.get_reward(final_ast); 
   for (auto& ex : examples_) {
     ex.reward = final_reward;
   }
-
 }
 
 /**
@@ -272,11 +280,7 @@ std::shared_ptr<brick::AST::AST> MCTS<Regressor>::build_current_ast() {
  */
 template <class Regressor>
 std::shared_ptr<brick::AST::AST> MCTS<Regressor>::get_result() {
-  if (result_ast_) {
-    return result_ast_;
-  } else {
-    return build_current_ast();
-  }
+  return get_top_n_asts().back(); 
 }
 
 /**
@@ -300,9 +304,10 @@ void MCTS<Regressor>::reset() {
  * by the simulator
  */
 template <class Regressor>
-std::vector<std::shared_ptr<brick::AST::AST>> 
-  MCTS<Regressor>::get_top_n_asts() {
-  return simulator_.dump_pri_q();
+void MCTS<Regressor>::pull_top_asts_from_priq() {
+  if (top_asts_.empty()) {
+    top_asts_ = simulator_.dump_pri_q();
+  }
 }
 
 /**
