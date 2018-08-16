@@ -28,10 +28,15 @@ class config {
     std::shared_ptr<cpptoml::table> tbl_;
   public:
     config(std::shared_ptr<cpptoml::table>);
+    
     template <class T>
     T get(std::string);
+    
     template <class T>
-    std::vector<T> get_vector(std::string); 
+    std::vector<T> get_vector(std::string);
+    
+    template <class T>
+    void set(std::string, T);
 };
 
 /**
@@ -75,6 +80,12 @@ std::vector<T> config::get_vector(std::string key) {
     throw "MissingTomlKeyException";
   }
   return option.value_or(std::vector<T>{});
+}
+
+template <class T>
+void config::set(std::string key, T value) {
+  tbl_->erase(key);
+  tbl_->insert(key, value);
 }
 
 /**

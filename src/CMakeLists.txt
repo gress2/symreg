@@ -13,10 +13,6 @@ target_include_directories (ranker PRIVATE ${include_dir})
 target_link_libraries (ranker brick_ast)
 target_link_libraries (ranker dlib::dlib)
 
-add_executable (nn nn.cc)
-target_include_directories (nn PRIVATE ${include_dir})
-target_link_libraries (nn dlib::dlib)
-
 add_executable (training_ex_generator training_ex_generator.cc)
 target_include_directories (training_ex_generator PRIVATE ${include_dir})
 target_link_libraries (training_ex_generator brick_ast)

@@ -100,6 +100,7 @@ class MCTS {
     void write_game_state(int) const;
     bool game_over();
     std::shared_ptr<brick::AST::AST> build_current_ast();
+    std::vector<std::shared_ptr<brick::AST::AST>> top_asts_;
   public:
     // composable constructor for testability
     MCTS(dataset&, simulator::simulator<Regressor>, int);
@@ -187,7 +188,9 @@ void MCTS<Regressor>::iterate() {
     }
 
     search_node* prev = curr_;
-    examples_.push_back(training_example{build_current_ast()->to_string(), curr_->get_pi(), 0});
+    examples_.push_back(
+      training_example{build_current_ast()->to_string(), curr_->get_pi(), 0}
+    );
     curr_ = choose_move(curr_, terminal_thresh_);
     #if LOG_LEVEL > 0
     log_stream_ << "Iteration: " << i << std::endl;
@@ -205,8 +208,6 @@ void MCTS<Regressor>::iterate() {
   } else {
     simulator_.push_priq(build_current_ast());
   }
-
-  pull_top_asts_from_priq();
 
   // assign rewards to examples
   auto final_ast = get_result();
@@ -295,19 +296,15 @@ void MCTS<Regressor>::reset() {
   curr_ = &root_;
   result_ast_ = nullptr;
   simulator_.reset();
+  top_asts_.clear();
 }
 
-/**
- * @brief gets a vector dump of the AST priority queue
- * being maintained by the simulator.
- * @return a vector of the top N best ASTs encountered
- * by the simulator
- */
 template <class Regressor>
-void MCTS<Regressor>::pull_top_asts_from_priq() {
+std::vector<std::shared_ptr<brick::AST::AST>> MCTS<Regressor>::get_top_n_asts() {
   if (top_asts_.empty()) {
     top_asts_ = simulator_.dump_pri_q();
   }
+  return top_asts_;
 }
 
 /**

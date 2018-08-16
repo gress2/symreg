@@ -9,7 +9,7 @@ namespace symreg
  * MCTS produced, regressor consumed training examples
  */
 struct training_example {
-  std::string state;
+  std::string f_hat;
   std::vector<double> pi;
   double reward;
 };
